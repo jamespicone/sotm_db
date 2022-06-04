@@ -1,27 +1,5 @@
 import sqlite3
 
-# Cards need:
-# - Card name
-# - Hitpoints (poss. None)
-# - Keywords list (poss. empty)
-# - Card text (poss. None)
-# - Card "Gameplay" text (poss. None)
-# - Card "Setup" text (poss. None)
-# - Card "Advanced" text (poss. None)
-# - Card "Challenge" text (poss. None)
-# - Card powers (poss. empty)
-# - Card abilities (poss. empty)
-# - Card back (another Card instance for the front side; self for the flipped side)
-# - Card front (another Card instance for the flipped side; self for the front side)
-# - Card count (number of copies of this card in the deck)
-# - Card deck name
-# - Card mod name
-# - Card flavour text & flavour reference (may be quotes?)
-#
-# Extract from JSON files
-# Remember 'body' text is used for power names on character cards.
-
-
 # Construct the database structure:
 # We track:
 # - mods: Collections of game content; the base game is a 'mod' as well.
@@ -45,7 +23,7 @@ cur.execute("DROP TABLE IF EXISTS cards;")
 cur.execute("""
 CREATE TABLE mods (
 	key INTEGER PRIMARY KEY NOT NULL,
-	name VARCHAR(255) NOT NULL,
+	name VARCHAR(255) UNIQUE NOT NULL,
 	authors VARCHAR(255) NOT NULL,
 	link VARCHAR(255)
 );
