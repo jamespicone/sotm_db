@@ -24,7 +24,7 @@ class Card:
 	def __repr__(self):
 		return str(self)
 
-def search_cards(search_string, deck_hint = None, mod_hint = None):
+def search_cards(search_string, deck_hint = None):
 	"""
 	Returns an iterable of Cards with title matching 'search_string'.
 	
@@ -36,7 +36,17 @@ def search_cards(search_string, deck_hint = None, mod_hint = None):
 
 	search_string = "%" + search_string + "%"
 
-	results = cur.execute("SELECT * FROM cards WHERE name LIKE ?;", (search_string, )).fetchall();
+	possible_decks = []
+
+	params = [ search_string ]
+	sql = "SELECT * FROM cards WHERE name LIKE ?"
+
+	if deck_hint is not None:
+		deck_hint = "%" + deck_hint + "%"
+		params.append(deck_hint)
+		sql += " AND deck_key IN (SELECT key FROM decks WHERE name LIKE ?)"
+
+	results = cur.execute(sql, params).fetchall();
 	return [ Card(row) for row in results ]
 
 def get_card(card_title):
