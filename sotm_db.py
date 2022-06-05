@@ -1,12 +1,15 @@
 import sqlite3
 
+db = sqlite3.connect("sotm_cards.db")
+db.row_factory = sqlite3.Row
+cur = db.cursor()
+
 class Card:
-	def __init__(self, title, keywords, text, hitpoints = None):
-		self.title = title
-		self.keywords = keywords
-		self.text = text
-		self.hitpoints = hitpoints
-		pass
+	def __init__(self, db_row):
+		self.title = db_row["name"]
+		self.text = db_row["text"]
+		self.hitpoints = None
+		self.keywords = []
 
 	def __str__(self):
 		ret = self.title
@@ -21,7 +24,7 @@ class Card:
 	def __repr__(self):
 		return str(self)
 
-def get_card(search_string, deck_hint = None, mod_hint = None):
+def search_cards(search_string, deck_hint = None, mod_hint = None):
 	"""
 	Returns an iterable of Cards with title matching 'search_string'.
 	
@@ -30,7 +33,18 @@ def get_card(search_string, deck_hint = None, mod_hint = None):
 
 	Returns an empty iterable if no matching cards are found.
 	"""
-	return [
-		Card("Test Card", ["ongoing", "fred"], "Do something interesting", 5),
-		Card("Other Card", [], "Do 1 damage")
-	]
+
+	search_string = "%" + search_string + "%"
+
+	results = cur.execute("SELECT * FROM cards WHERE name LIKE ?;", (search_string, )).fetchall();
+	return [ Card(row) for row in results ]
+
+def get_card(card_title):
+	"""
+	Returns a Card with title equal to 'card_title', or None if no such card exists.
+	"""
+	results = cur.execute("SELECT * FROM cards WHERE name = ?;", (card_title, )).fetchall();
+	if len(results) == 0:
+		return None
+
+	return Card(results[0])

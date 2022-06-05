@@ -65,8 +65,16 @@ print(f"Entry for {manifest['title']} has key {mod_key}")
 decklists = get_decklists(directory_to_use)
 print(f"Found {len(decklists)} decklist files to inspect")
 
-def get_deck_key(decklist, mod_key):
-	return cur.execute("INSERT INTO decks (name, deck_type, mod_key) VALUES(?, ?, ?) RETURNING key;", (decklist["name"], decklist["kind"], mod_key )).fetchone()[0]
+def import_card(card, deck_key):
+	title = card["title"]
+	text = card.get("body", "")
+	if isinstance(text, list):
+		text = "\n".join(text)
+
+	print(f"{title}: {text}")
+	cur.execute("INSERT INTO cards (name, text, deck_key) VALUES(?, ?, ?);",
+		(title, text, deck_key)
+	)
 
 def import_decklist(decklist_filename, mod_key):
 	try:
@@ -76,9 +84,14 @@ def import_decklist(decklist_filename, mod_key):
 			deckname = decklist["name"]
 			decktype = decklist["kind"]
 
-			get_deck_key(decklist, mod_key)
-
 			print (f"Decklist {decklist_filename} contains {decktype} deck \"{deckname}\"")
+
+			deck_key =  cur.execute("INSERT INTO decks (name, deck_type, mod_key) VALUES(?, ?, ?) RETURNING key;", (deckname, decktype, mod_key )).fetchone()[0]
+
+			cards = decklist["cards"]
+			for card in cards:
+				import_card(card, deck_key)
+
 	except BaseException as err:
 		print(f"Failed to interpret {decklist_filename} as a decklist: {err}")
 
