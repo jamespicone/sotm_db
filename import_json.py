@@ -79,10 +79,12 @@ def import_card(card, deck_key):
 	advanced = read_text_list(card, "advanced")
 	challenge = read_text_list(card, "challenge")
 	keywords = ", ".join(card.get("keywords", []))
+	hitpoints = card.get("hitpoints")
+	count = card.get("count", 1)
 
 	print(f"{title}: {text}")
-	card_key = cur.execute("INSERT INTO cards (name, text, gameplay, advanced, challenge, keywords, deck_key) VALUES(?, ?, ?, ?, ?, ?, ?) RETURNING key;",
-		(title, text, gameplay, advanced, challenge, keywords, deck_key)
+	card_key = cur.execute("INSERT INTO cards (name, hitpoints, text, gameplay, advanced, challenge, keywords, count, deck_key) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING key;",
+		(title, hitpoints, text, gameplay, advanced, challenge, keywords, count, deck_key)
 	).fetchone()[0]
 
 	powers = card.get("powers")

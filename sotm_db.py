@@ -35,7 +35,8 @@ class Card:
 		self.gameplay = db_row["gameplay"]
 		self.advanced = db_row["advanced"]
 		self.challenge = db_row["challenge"]
-		self.hitpoints = None
+		self.hitpoints = db_row["hitpoints"]
+		self.count = db_row["count"]
 		self.keywords = db_row["keywords"]
 		self.abilities = [ Ability(ability) for ability in ability_rows ]
 
@@ -58,7 +59,9 @@ class Card:
 		formatter.title(self.title)
 		
 		if self.hitpoints != None:
-			formatter.smallbox("HP", hitpoints)
+			formatter.smallbox("HP", str(self.hitpoints))
+
+		formatter.smallbox("Quantity", str(self.count))
 
 		if len(self.keywords) > 0:
 			formatter.smallbox("Keywords", self.keywords)
@@ -78,8 +81,6 @@ class Card:
 		if len(self.abilities) > 0:
 			for ability in self.abilities:
 				formatter.box(ability.name, ability.text)
-
-		return "";
 
 def search_cards(search_string, deck_hint = None):
 	"""

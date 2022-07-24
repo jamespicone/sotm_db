@@ -68,12 +68,14 @@ CREATE TABLE cards (
 	key INTEGER PRIMARY KEY NOT NULL,
 	deck_key INTEGER NOT NULL,
 	name VARCHAR(255) NOT NULL COLLATE NOCASE,
+	hitpoints INTEGER,
 	text VARCHAR(255),
 	gameplay VARCHAR(255),
 	setup VARCHAR(255),
 	advanced VARCHAR(255),
 	challenge VARCHAR(255),
 	keywords VARCHAR(255),
+	count INTEGER NOT NULL,
 
 	FOREIGN KEY(deck_key) REFERENCES decks(key)
 );
