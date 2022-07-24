@@ -14,6 +14,7 @@ cur = db.cursor()
 cur.execute("DROP TABLE IF EXISTS mods;")
 cur.execute("DROP TABLE IF EXISTS decks;")
 cur.execute("DROP TABLE IF EXISTS cards;")
+cur.execute("DROP TABLE IF EXISTS abilities;")
 
 # Table mods
 # - PK
@@ -68,8 +69,29 @@ CREATE TABLE cards (
 	deck_key INTEGER NOT NULL,
 	name VARCHAR(255) NOT NULL COLLATE NOCASE,
 	text VARCHAR(255),
+	gameplay VARCHAR(255),
+	setup VARCHAR(255),
+	advanced VARCHAR(255),
+	challenge VARCHAR(255),
+	keywords VARCHAR(255),
 
 	FOREIGN KEY(deck_key) REFERENCES decks(key)
+);
+""")
+
+# Table abilities
+# - PK
+# - Card id
+# - Ability name ("power" for powers)
+# - Power text
+cur.execute("""
+CREATE TABLE abilities (
+	key INTEGER PRIMARY KEY NOT NULL,
+	card_key INTEGER NOT NULL,
+	ability_name VARCHAR(255) NOT NULL,
+	text VARCHAR(255),
+
+	FOREIGN KEY(card_key) REFERENCES cards(key)
 );
 """)
 

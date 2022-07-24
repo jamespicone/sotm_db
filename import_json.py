@@ -65,16 +65,41 @@ print(f"Entry for {manifest['title']} has key {mod_key}")
 decklists = get_decklists(directory_to_use)
 print(f"Found {len(decklists)} decklist files to inspect")
 
+def read_text_list(node, key):
+	element = node.get(key)
+	if isinstance(element, list):
+		return "\n".join(element).replace("{BR}", "\n")
+
+	return element
+
 def import_card(card, deck_key):
 	title = card["title"]
-	text = card.get("body", "")
-	if isinstance(text, list):
-		text = "\n".join(text)
+	text = read_text_list(card, "body")
+	gameplay = read_text_list(card, "gameplay")
+	advanced = read_text_list(card, "advanced")
+	challenge = read_text_list(card, "challenge")
+	keywords = ", ".join(card.get("keywords", []))
 
 	print(f"{title}: {text}")
-	cur.execute("INSERT INTO cards (name, text, deck_key) VALUES(?, ?, ?);",
-		(title, text, deck_key)
-	)
+	card_key = cur.execute("INSERT INTO cards (name, text, gameplay, advanced, challenge, keywords, deck_key) VALUES(?, ?, ?, ?, ?, ?, ?) RETURNING key;",
+		(title, text, gameplay, advanced, challenge, keywords, deck_key)
+	).fetchone()[0]
+
+	powers = card.get("powers")
+	if isinstance(powers, list):
+		for power in powers:
+			cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
+				(card_key, "power", power.replace("{BR}", "\n"))
+			)
+
+	abilities = card.get("activatableAbilities")
+	if isinstance(abilities, list):
+		for ability in abilities:
+			name = ability.get("name")
+			ability_text = ability.get("text").replace("{BR}", "\n")
+			cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
+				(card_key, name, ability_text)
+			)
 
 def import_decklist(decklist_filename, mod_key):
 	try:
