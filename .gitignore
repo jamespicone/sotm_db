@@ -130,3 +130,4 @@ dmypy.json
 /.vs
 
 sotm_cards.db
+discord_token.py
