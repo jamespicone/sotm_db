@@ -76,8 +76,14 @@ CREATE TABLE cards (
 	challenge VARCHAR(255),
 	keywords VARCHAR(255),
 	count INTEGER NOT NULL,
+	back_side INTEGER,
+	front_side INTEGER,
+	flavour_text VARCHAR(255),
+	flavour_reference VARCHAR(255),
 
 	FOREIGN KEY(deck_key) REFERENCES decks(key)
+	FOREIGN KEY(back_side) REFERENCES cards(key)
+	FOREIGN KEY(front_side) REFERENCES cards(key)
 );
 """)
 

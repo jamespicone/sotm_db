@@ -53,9 +53,10 @@ def get_mod_key(manifest):
 	cur.execute("UPDATE mods SET authors = ? WHERE name = ?;", ( manifest["title"], manifest["author"] ))
 	key = cur.execute("SELECT key FROM mods WHERE name = ?;",  ( manifest["title"], )).fetchone()
 
+	cur.execute("DELETE FROM abilities WHERE card_key in (SELECT key FROM cards WHERE deck_key IN (SELECT key FROM decks WHERE mod_key = ?));", ( key[0], ))
 	cur.execute("DELETE FROM cards WHERE deck_key IN (SELECT key FROM decks WHERE mod_key = ?);", ( key[0], ))
 	cur.execute("DELETE FROM decks WHERE mod_key = ?;", ( key[0], ))
-
+	
 	return key[0]
 
 manifest = load_manifest(directory_to_use)
@@ -72,36 +73,80 @@ def read_text_list(node, key):
 
 	return element
 
-def import_card(card, deck_key):
+def import_card_with_fields(card, deck_key, text_key, gameplay_key, advanced_key, challenge_key, hitpoints_key, powers_key, abilities_key, incap_key):
 	title = card["title"]
-	text = read_text_list(card, "body")
-	gameplay = read_text_list(card, "gameplay")
-	advanced = read_text_list(card, "advanced")
-	challenge = read_text_list(card, "challenge")
+	text = read_text_list(card, text_key)
+	gameplay = read_text_list(card, gameplay_key)
+	advanced = read_text_list(card, advanced_key)
+	challenge = read_text_list(card, challenge_key)
 	keywords = ", ".join(card.get("keywords", []))
-	hitpoints = card.get("hitpoints")
+	hitpoints = card.get(hitpoints_key)
 	count = card.get("count", 1)
+	incaps = None
+	if incap_key != None:
+		incaps = card.get(incap_key)
+
+	if text == None and gameplay == None and advanced == None and challenge == None and hitpoints == None and not isinstance(incaps, list):
+		return None
 
 	print(f"{title}: {text}")
 	card_key = cur.execute("INSERT INTO cards (name, hitpoints, text, gameplay, advanced, challenge, keywords, count, deck_key) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING key;",
 		(title, hitpoints, text, gameplay, advanced, challenge, keywords, count, deck_key)
 	).fetchone()[0]
 
-	powers = card.get("powers")
+	powers = card.get(powers_key)
 	if isinstance(powers, list):
 		for power in powers:
 			cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
 				(card_key, "power", power.replace("{BR}", "\n"))
 			)
 
-	abilities = card.get("activatableAbilities")
-	if isinstance(abilities, list):
-		for ability in abilities:
-			name = ability.get("name")
-			ability_text = ability.get("text").replace("{BR}", "\n")
+	if isinstance(incaps, list):
+		for incap in incaps:
 			cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
-				(card_key, name, ability_text)
+				(card_key, "incap", incap.replace("{BR}", "\n"))
 			)
+
+	if abilities_key != None:
+		abilities = card.get(abilities_key)
+		if isinstance(abilities, list):
+			for ability in abilities:
+				name = ability.get("name")
+				ability_text = ability.get("text").replace("{BR}", "\n")
+				cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
+					(card_key, name, ability_text)
+				)
+
+	return card_key
+
+def import_card(card, deck_key):
+	front_key = import_card_with_fields(
+		card, deck_key,
+		"body",
+		"gameplay",
+		"advanced",
+		"challengeText",
+		"hitpoints",
+		"powers",
+		"activatableAbilities",
+		None
+	)
+
+	back_key = import_card_with_fields(
+		card, deck_key,
+		"flippedBody",
+		"flippedGameplay",
+		"flippedAdvanced",
+		"flippedChallengeText",
+		"flippedHitPoints",
+		"flippedPowers",
+		None,
+		"incapacitatedAbilities"
+	)
+
+	if front_key != None and back_key != None:
+		cur.execute("UPDATE cards SET back_side = ? WHERE key = ?;", (back_key, front_key))
+		cur.execute("UPDATE cards SET front_side = ? WHERE key = ?;", (front_key, back_key))
 
 def import_decklist(decklist_filename, mod_key):
 	try:
@@ -118,6 +163,10 @@ def import_decklist(decklist_filename, mod_key):
 			cards = decklist["cards"]
 			for card in cards:
 				import_card(card, deck_key)
+
+			promos = decklist.get("promoCards", [])
+			for promo in promos:
+				import_card(promo, deck_key)
 
 	except BaseException as err:
 		print(f"Failed to interpret {decklist_filename} as a decklist: {err}")

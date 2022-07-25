@@ -5,6 +5,12 @@ import discord_token
 
 logging.basicConfig(level=logging.INFO)
 
+"""If we have > this many cards we just list the names of the matching cards"""
+CARD_SUMMARISE_LIMIT=3
+
+"""If we have > this many cards we just say we've got a lot of matches"""
+CARD_TOTAL_LIMT=10
+
 class DiscordEmbedFormatter:
 	def __init__(self, embed):
 		self.embed = embed
@@ -18,14 +24,31 @@ class DiscordEmbedFormatter:
 	def box(self, box_title, box_text):
 		self.embed.add_field(name=box_title, value=box_text, inline=False)
 
-async def handle_command(command, channel):
-	cards = sotm_db.search_cards(command)
-	for card in cards:
-		embed = discord.Embed()
-		formatter = DiscordEmbedFormatter(embed)
-		card.format(formatter)
+	def footer(self, footer_text):
+		self.embed.set_footer(text=footer_text)
 
-		await channel.send(embed=embed)
+async def handle_command(command, message):
+	cards = sotm_db.search_cards(command)
+
+	if len(cards) > 1:
+		to_send = f"There are {len(cards)} possible matches for [[{command}]]:"
+	else:
+		to_send = f"[[{command}]]:"
+
+	if len(cards) > CARD_SUMMARISE_LIMIT:
+		if len(cards) < CARD_TOTAL_LIMT:
+			for card in cards:
+				to_send += "\n" + card.mod + "|" + card.deck + "|" + card.title
+
+		await message.channel.send(to_send, reference=message)
+	else:
+		for card in cards:
+			embed = discord.Embed()
+			formatter = DiscordEmbedFormatter(embed)
+			card.format(formatter)
+
+			await message.channel.send(content=to_send, embed=embed, reference=message)
+			to_send = None
 
 class MyClient(discord.Client):
 	async def on_ready(self):
@@ -47,7 +70,7 @@ class MyClient(discord.Client):
 			bot_command_end = message.content.find("]]", bot_command_start, bot_command_newline)
 			if bot_command_end < 0: break
 
-			await handle_command(message.content[bot_command_start:bot_command_end], message.channel)
+			await handle_command(message.content[bot_command_start:bot_command_end], message)
 			offset = bot_command_end
 
 client = MyClient()

@@ -20,8 +20,11 @@ class TextFormatter:
 	def box(self, box_title, box_text):
 		self.text += "\t" + box_title + ":\n"
 
-		self.text += "\t\t| " + box_text.replace("{BR}", "\n").replace("\n", "\n\t\t| ")
+		self.text += "\t\t| " + box_text.replace("\n", "\n\t\t| ")
 		self.text += "\n\n"
+
+	def footer(self, footer_text):
+		self.text += "(" + footer_text + ")"
 
 class Ability:
 	def __init__(self, db_row):
@@ -39,16 +42,11 @@ class Card:
 		self.count = db_row["count"]
 		self.keywords = db_row["keywords"]
 		self.abilities = [ Ability(ability) for ability in ability_rows ]
+		self.mod = db_row["mod_name"]
+		self.deck = db_row["deck_name"]
 
 	def __str__(self):
-		ret = self.title
-
-		if self.hitpoints is not None:
-			ret += " | " + str(self.hitpoints) + " HP"
-
-		ret += " | " + ", ".join(self.keywords) + " | " + self.text
-
-		return ret
+		return self.title
 
 	def __repr__(self):
 		formatter = TextFormatter()
@@ -82,6 +80,8 @@ class Card:
 			for ability in self.abilities:
 				formatter.box(ability.name, ability.text)
 
+		formatter.footer(f"Deck: {self.deck}, Mod: {self.mod}")
+
 def search_cards(search_string, deck_hint = None):
 	"""
 	Returns an iterable of Cards with title matching 'search_string'.
@@ -96,12 +96,12 @@ def search_cards(search_string, deck_hint = None):
 	possible_decks = []
 
 	params = [ search_string ]
-	sql = "SELECT * FROM cards WHERE name LIKE ?"
+	sql = "SELECT cards.*, decks.name AS deck_name, mods.name AS mod_name FROM cards INNER JOIN decks ON decks.key == cards.deck_key INNER JOIN mods ON mods.key == decks.mod_key WHERE cards.name LIKE ?"
 
 	if deck_hint is not None:
 		deck_hint = "%" + deck_hint + "%"
 		params.append(deck_hint)
-		sql += " AND deck_key IN (SELECT key FROM decks WHERE name LIKE ?)"
+		sql += " AND cards.deck_key IN (SELECT key FROM decks WHERE name LIKE ?)"
 
 	results = cur.execute(sql, params).fetchall();
 
