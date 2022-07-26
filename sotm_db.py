@@ -45,6 +45,7 @@ class Card:
 		self.abilities = [ Ability(ability) for ability in ability_rows ]
 		self.mod = db_row["mod_name"]
 		self.deck = db_row["deck_name"]
+		self.deck_type = db_row["deck_type"]
 		self.sort_key = db_row["key"]
 
 		self.is_front = True
@@ -95,7 +96,7 @@ class Card:
 			for ability in self.abilities:
 				formatter.box(ability.name, ability.text)
 
-		formatter.footer(f"Deck: {self.deck}, Mod: {self.mod}")
+		formatter.footer(f"Deck: {self.deck}, Mod: {self.mod}, Deck type: {self.deck_type}")
 
 def search_cards(search_string, deck_hint = None):
 	"""
@@ -111,7 +112,7 @@ def search_cards(search_string, deck_hint = None):
 	possible_decks = []
 
 	params = [ search_string ]
-	sql = "SELECT cards.*, decks.name AS deck_name, mods.name AS mod_name FROM cards INNER JOIN decks ON decks.key == cards.deck_key INNER JOIN mods ON mods.key == decks.mod_key WHERE cards.name LIKE ?"
+	sql = "SELECT cards.*, decks.deck_type, decks.name AS deck_name, mods.name AS mod_name FROM cards INNER JOIN decks ON decks.key == cards.deck_key INNER JOIN mods ON mods.key == decks.mod_key WHERE cards.name LIKE ?"
 
 	if deck_hint is not None:
 		deck_hint = "%" + deck_hint + "%"
