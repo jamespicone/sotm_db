@@ -1,8 +1,37 @@
-import sqlite3
+﻿import sqlite3
 import sys
 import os
 import glob
 import json
+from flashtext import KeywordProcessor
+
+icon_replacer = KeywordProcessor(case_sensitive=True)
+icon_replacer.add_keyword("{BR}", "\n")
+icon_replacer.add_keyword("{crocodile}", "🐊")
+icon_replacer.add_keyword("{rhinoceros}", "🦏")
+icon_replacer.add_keyword("{gazelle}", "🦌")
+icon_replacer.add_keyword("{magic}", "✨")
+icon_replacer.add_keyword("{filter}", "👽")
+icon_replacer.add_keyword("{sun}", "☀")
+icon_replacer.add_keyword("{elements}", "✋")
+icon_replacer.add_keyword("{ankh}", "☥")
+icon_replacer.add_keyword("{avian}", "🐦")
+icon_replacer.add_keyword("{arcana}", "⛤")
+icon_replacer.add_keyword("{SimurghDanger}", "#️⃣")
+icon_replacer.add_keyword("{SimurghDanger1}", "1️⃣")
+icon_replacer.add_keyword("{SimurghDanger2}", "2️⃣")
+icon_replacer.add_keyword("{SimurghDanger3}", "3️⃣")
+icon_replacer.add_keyword("{SimurghDanger4}", "4️⃣")
+icon_replacer.add_keyword("{SimurghDanger5}", "5️⃣")
+icon_replacer.add_keyword("{SimurghDanger6}", "6️⃣")
+icon_replacer.add_keyword("{SimurghDanger7}", "7️⃣")
+icon_replacer.add_keyword("{SimurghDanger8}", "8️⃣")
+icon_replacer.add_keyword("{SimurghDanger9}", "9️⃣")
+icon_replacer.add_keyword("[b]", "**")
+icon_replacer.add_keyword("[/b]", "**")
+icon_replacer.add_keyword("[u]", "__")
+icon_replacer.add_keyword("[/u]", "__")
+icon_replacer.set_non_word_boundaries("")
 
 # Walk over the directory passed, or cwd if no directory passed
 directory_to_use = os.getcwd()
@@ -66,13 +95,16 @@ print(f"Entry for {manifest['title']} has key {mod_key}")
 decklists = get_decklists(directory_to_use)
 print(f"Found {len(decklists)} decklist files to inspect")
 
+def replace_braced_stuff(text):
+	return icon_replacer.replace_keywords(text)
+
 def read_text_list(node, key):
 	element = node.get(key)
 	if isinstance(element, list):
-		return "\n".join(element).replace("{BR}", "\n")
+		return replace_braced_stuff("\n".join(element))
 
 	if isinstance(element, str):
-		return element.replace("{BR}", "\n")
+		return replace_braced_stuff(element)
 
 	return element
 
@@ -83,7 +115,7 @@ def import_card_with_fields(card, deck_key, text_key, gameplay_key, advanced_key
 	gameplay = read_text_list(card, gameplay_key)
 	advanced = read_text_list(card, advanced_key)
 	challenge = read_text_list(card, challenge_key)
-	keywords = ", ".join(card.get("keywords", []))
+	keywords = replace_braced_stuff(", ".join(card.get("keywords", [])))
 	hitpoints = card.get(hitpoints_key)
 	count = card.get("count", 1)
 	incaps = None
@@ -102,13 +134,13 @@ def import_card_with_fields(card, deck_key, text_key, gameplay_key, advanced_key
 	if isinstance(powers, list):
 		for power in powers:
 			cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
-				(card_key, "power", power.replace("{BR}", "\n"))
+				(card_key, "power", replace_braced_stuff(power))
 			)
 
 	if isinstance(incaps, list):
 		for incap in incaps:
 			cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
-				(card_key, "incap", incap.replace("{BR}", "\n"))
+				(card_key, "incap", replace_braced_stuff(incap))
 			)
 
 	if abilities_key != None:
@@ -116,7 +148,7 @@ def import_card_with_fields(card, deck_key, text_key, gameplay_key, advanced_key
 		if isinstance(abilities, list):
 			for ability in abilities:
 				name = ability.get("name")
-				ability_text = ability.get("text").replace("{BR}", "\n")
+				ability_text = replace_braced_stuff(ability.get("text"))
 				cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
 					(card_key, name, ability_text)
 				)

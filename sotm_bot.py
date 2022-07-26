@@ -32,15 +32,21 @@ async def handle_command(command, message):
 
 	unique_card_count = sum(1 for card in cards if card.is_front_side())
 
+	if unique_card_count <= 0:
+		await message.channel.send(f"There are no matches for [[{command}]]", reference=message)
+
 	if unique_card_count > 1:
-		to_send = f"There are {len(cards)} possible matches for [[{command}]]:"
+		to_send = f"There are {len(cards)} possible matches for [[{command}]]"
 	else:
 		to_send = f"[[{command}]]:"
 
 	if unique_card_count > CARD_SUMMARISE_LIMIT:
 		if unique_card_count < CARD_TOTAL_LIMT:
+			to_send += ":"
 			for card in cards:
 				to_send += "\n" + card.mod + "|" + card.deck + "|" + card.title
+		else:
+			to_send += "; which is too many to list."
 
 		await message.channel.send(to_send, reference=message)
 	else:
