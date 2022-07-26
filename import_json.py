@@ -71,10 +71,14 @@ def read_text_list(node, key):
 	if isinstance(element, list):
 		return "\n".join(element).replace("{BR}", "\n")
 
+	if isinstance(element, str):
+		return element.replace("{BR}", "\n")
+
 	return element
 
 def import_card_with_fields(card, deck_key, text_key, gameplay_key, advanced_key, challenge_key, hitpoints_key, powers_key, abilities_key, incap_key):
 	title = card["title"]
+	title = card.get("promoTitle", title)
 	text = read_text_list(card, text_key)
 	gameplay = read_text_list(card, gameplay_key)
 	advanced = read_text_list(card, advanced_key)
@@ -150,7 +154,7 @@ def import_card(card, deck_key):
 
 def import_decklist(decklist_filename, mod_key):
 	try:
-		with open(decklist_filename, "r", encoding="utf-8") as decklist_file:
+		with open(decklist_filename, "r", encoding="utf-8-sig") as decklist_file:
 			decklist = json.load(decklist_file)
 
 			deckname = decklist["name"]

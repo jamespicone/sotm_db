@@ -1,4 +1,5 @@
 import sqlite3
+from operator import attrgetter
 
 db = sqlite3.connect("sotm_cards.db")
 db.row_factory = sqlite3.Row
@@ -44,6 +45,14 @@ class Card:
 		self.abilities = [ Ability(ability) for ability in ability_rows ]
 		self.mod = db_row["mod_name"]
 		self.deck = db_row["deck_name"]
+		self.sort_key = db_row["key"]
+
+		self.is_front = True
+		if db_row["front_side"] != None:
+			self.is_front = False
+			self.sort_key = db_row["front_side"]
+
+		self.is_back = not self.is_front
 
 	def __str__(self):
 		return self.title
@@ -53,8 +62,14 @@ class Card:
 		self.format(formatter)
 		return str(formatter)
 
+	def is_front_side(self):
+		return self.is_front
+
 	def format(self, formatter):
-		formatter.title(self.title)
+		if self.is_front:
+			formatter.title(self.title)
+		else:
+			formatter.title(self.title + " (back side)")
 		
 		if self.hitpoints != None:
 			formatter.smallbox("HP", str(self.hitpoints))
@@ -110,7 +125,7 @@ def search_cards(search_string, deck_hint = None):
 		abilities = cur.execute("SELECT * FROM abilities WHERE card_key == ?;", ( card_key, )).fetchall()
 		return Card(row, abilities)
 	
-	return [ process_card(row) for row in results ]
+	return sorted([ process_card(row) for row in results ], key = attrgetter("sort_key", "is_back"))
 
 def get_card(card_title):
 	"""

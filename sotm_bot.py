@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 CARD_SUMMARISE_LIMIT=3
 
 """If we have > this many cards we just say we've got a lot of matches"""
-CARD_TOTAL_LIMT=10
+CARD_TOTAL_LIMT=20
 
 class DiscordEmbedFormatter:
 	def __init__(self, embed):
@@ -30,13 +30,15 @@ class DiscordEmbedFormatter:
 async def handle_command(command, message):
 	cards = sotm_db.search_cards(command)
 
-	if len(cards) > 1:
+	unique_card_count = sum(1 for card in cards if card.is_front_side())
+
+	if unique_card_count > 1:
 		to_send = f"There are {len(cards)} possible matches for [[{command}]]:"
 	else:
 		to_send = f"[[{command}]]:"
 
-	if len(cards) > CARD_SUMMARISE_LIMIT:
-		if len(cards) < CARD_TOTAL_LIMT:
+	if unique_card_count > CARD_SUMMARISE_LIMIT:
+		if unique_card_count < CARD_TOTAL_LIMT:
 			for card in cards:
 				to_send += "\n" + card.mod + "|" + card.deck + "|" + card.title
 
