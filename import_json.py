@@ -108,29 +108,65 @@ def read_text_list(node, key):
 
 	return element
 
-def import_card_with_fields(card, deck_key, text_key, gameplay_key, advanced_key, challenge_key, hitpoints_key, powers_key, abilities_key, incap_key):
+def import_card_with_fields(card, deck_key, is_back):	
+	front_keys = {
+		"text": "body",
+		"gameplay": "gameplay",
+		"advanced": "advanced",
+		"challenge": "challengeText",
+		"hitpoints": "hitpoints",
+		"powers": "powers",
+		"abilities": "activatableAbilities",
+		"incaps": None,
+		"keywords": "keywords"
+	}
+
+	back_keys = {
+		"text": "flippedBody",
+		"gameplay": "flippedGameplay",
+		"advanced": "flippedAdvanced",
+		"challenge": "flippedChallengeText",
+		"hitpoints": "flippedHitPoints",
+		"powers": "flippedPowers",
+		"abilities": None,
+		"incaps": "incapacitatedAbilities",
+		"keywords": "flippedKeywords"
+	}
+
+	keys_to_use = front_keys
+	if is_back:
+		keys_to_use = back_keys
+
 	title = card["title"]
+	title = card.get("alternateTitle", title)
 	title = card.get("promoTitle", title)
-	text = read_text_list(card, text_key)
-	gameplay = read_text_list(card, gameplay_key)
-	advanced = read_text_list(card, advanced_key)
-	challenge = read_text_list(card, challenge_key)
-	keywords = replace_braced_stuff(", ".join(card.get("keywords", [])))
-	hitpoints = card.get(hitpoints_key)
+	text = read_text_list(card, keys_to_use["text"])
+	gameplay = read_text_list(card, keys_to_use["gameplay"])
+	advanced = read_text_list(card, keys_to_use["advanced"])
+	challenge = read_text_list(card, keys_to_use["challenge"])
+	keywords = replace_braced_stuff(", ".join(card.get(keys_to_use["keywords"], [])))
+	hitpoints = card.get(keys_to_use["hitpoints"])
 	count = card.get("count", 1)
 	incaps = None
-	if incap_key != None:
-		incaps = card.get(incap_key)
+	if keys_to_use["incaps"] != None:
+		incaps = card.get(keys_to_use["incaps"])
 
-	if text == None and gameplay == None and advanced == None and challenge == None and hitpoints == None and not isinstance(incaps, list):
+	if is_back and text == None and gameplay == None and advanced == None and challenge == None and hitpoints == None and not isinstance(incaps, list) and keywords == "":
 		return None
+
+	front_hitpoints = card.get(front_keys["hitpoints"])
+	if card.get("flippedShowHitpoints", True):
+		hitpoints = front_hitpoints
+
+	if is_back and keywords == "":
+		keywords = replace_braced_stuff(", ".join(card.get(front_keys["keywords"], [])))
 
 	print(f"{title}: {text}")
 	card_key = cur.execute("INSERT INTO cards (name, hitpoints, text, gameplay, advanced, challenge, keywords, count, deck_key) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING key;",
 		(title, hitpoints, text, gameplay, advanced, challenge, keywords, count, deck_key)
 	).fetchone()[0]
 
-	powers = card.get(powers_key)
+	powers = card.get(keys_to_use["powers"])
 	if isinstance(powers, list):
 		for power in powers:
 			cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
@@ -143,8 +179,8 @@ def import_card_with_fields(card, deck_key, text_key, gameplay_key, advanced_key
 				(card_key, "incap", replace_braced_stuff(incap))
 			)
 
-	if abilities_key != None:
-		abilities = card.get(abilities_key)
+	if keys_to_use["abilities"] != None:
+		abilities = card.get(keys_to_use["abilities"])
 		if isinstance(abilities, list):
 			for ability in abilities:
 				name = ability.get("name")
@@ -156,29 +192,8 @@ def import_card_with_fields(card, deck_key, text_key, gameplay_key, advanced_key
 	return card_key
 
 def import_card(card, deck_key):
-	front_key = import_card_with_fields(
-		card, deck_key,
-		"body",
-		"gameplay",
-		"advanced",
-		"challengeText",
-		"hitpoints",
-		"powers",
-		"activatableAbilities",
-		None
-	)
-
-	back_key = import_card_with_fields(
-		card, deck_key,
-		"flippedBody",
-		"flippedGameplay",
-		"flippedAdvanced",
-		"flippedChallengeText",
-		"flippedHitPoints",
-		"flippedPowers",
-		None,
-		"incapacitatedAbilities"
-	)
+	front_key = import_card_with_fields(card, deck_key, False)
+	back_key = import_card_with_fields(card, deck_key, True)
 
 	if front_key != None and back_key != None:
 		cur.execute("UPDATE cards SET back_side = ? WHERE key = ?;", (back_key, front_key))
@@ -203,6 +218,12 @@ def import_decklist(decklist_filename, mod_key):
 			promos = decklist.get("promoCards", [])
 			for promo in promos:
 				import_card(promo, deck_key)
+
+			subdecks = decklist.get("subdecks", [])
+			for subdeck in subdecks:
+				subdeck_cards = subdeck.get("cards", [])
+				for card in subdeck_cards:
+					import_card(card, deck_key)
 
 	except BaseException as err:
 		print(f"Failed to interpret {decklist_filename} as a decklist: {err}")
