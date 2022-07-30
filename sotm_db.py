@@ -1,4 +1,5 @@
 import sqlite3
+import unicodedata
 from operator import attrgetter
 
 db = sqlite3.connect("sotm_cards.db")
@@ -62,6 +63,9 @@ class Card:
 		formatter = TextFormatter()
 		self.format(formatter)
 		return str(formatter)
+
+	def is_exact_match(self, command):
+		return unicodedata.normalize('NFC', self.title.casefold()) == unicodedata.normalize('NFC', command.casefold())
 
 	def is_front_side(self):
 		return self.is_front

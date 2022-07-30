@@ -30,6 +30,9 @@ class DiscordEmbedFormatter:
 async def handle_command(command, message):
 	cards = sotm_db.search_cards(command)
 
+	exact_matches = [ card for card in cards if card.is_exact_match(command) ]
+	inexact_matches = [ card for card in cards if not card in exact_matches ]
+
 	unique_card_count = sum(1 for card in cards if card.is_front_side())
 
 	if unique_card_count <= 0:
@@ -40,17 +43,28 @@ async def handle_command(command, message):
 	else:
 		to_send = f"[[{command}]]:"
 
+	for card in exact_matches:
+		embed = discord.Embed()
+		formatter = DiscordEmbedFormatter(embed)
+		card.format(formatter)
+
+		await message.channel.send(content=to_send, embed=embed, reference=message)
+		to_send = None
+
 	if unique_card_count > CARD_SUMMARISE_LIMIT:
+		if to_send == None:
+			to_send = f"{len(inexact_matches)} inexact matches"
+
 		if unique_card_count < CARD_TOTAL_LIMT:
 			to_send += ":"
-			for card in cards:
+			for card in inexact_matches:
 				to_send += "\n" + card.mod + "|" + card.deck + "|" + card.title
 		else:
-			to_send += "; which is too many to list."
+			to_send += " which is too many to list."
 
 		await message.channel.send(to_send, reference=message)
 	else:
-		for card in cards:
+		for card in inexact_matches:
 			embed = discord.Embed()
 			formatter = DiscordEmbedFormatter(embed)
 			card.format(formatter)
