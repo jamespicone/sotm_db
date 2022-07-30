@@ -29,6 +29,8 @@ icon_replacer.add_keyword("{SimurghDanger8}", "8️⃣")
 icon_replacer.add_keyword("{SimurghDanger9}", "9️⃣")
 icon_replacer.add_keyword("[b]", "**")
 icon_replacer.add_keyword("[/b]", "**")
+icon_replacer.add_keyword("[i]", "*")
+icon_replacer.add_keyword("[/i]", "*")
 icon_replacer.add_keyword("[u]", "__")
 icon_replacer.add_keyword("[/u]", "__")
 icon_replacer.set_non_word_boundaries("")
@@ -175,6 +177,11 @@ def import_card_with_fields(card, deck_key, is_back):
 
 	if isinstance(incaps, list):
 		for incap in incaps:
+			if not isinstance(incap, str):
+				incap = incap.get("text")
+
+			if incap == None: continue
+
 			cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
 				(card_key, "incap", replace_braced_stuff(incap))
 			)
@@ -183,7 +190,7 @@ def import_card_with_fields(card, deck_key, is_back):
 		abilities = card.get(keys_to_use["abilities"])
 		if isinstance(abilities, list):
 			for ability in abilities:
-				name = ability.get("name")
+				name = replace_braced_stuff(ability.get("name"))
 				ability_text = replace_braced_stuff(ability.get("text"))
 				cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
 					(card_key, name, ability_text)
