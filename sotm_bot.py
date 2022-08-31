@@ -36,12 +36,12 @@ async def handle_command(command, message):
 	unique_card_count = sum(1 for card in cards if card.is_front_side())
 
 	if unique_card_count <= 0:
-		await message.channel.send(f"There are no matches for \{\{{command}\}\}", reference=message)
+		await message.channel.send("There are no matches for {{" + str(command) + "}}", reference=message)
 
 	if unique_card_count > 1:
-		to_send = f"There are {len(cards)} possible matches for \{\{{command}\}\}"
+		to_send = f"There are {len(cards)} possible matches for {{" + str(command) + "}}"
 	else:
-		to_send = f"\{\{{command}\}\}:"
+		to_send = str(command) + ":"
 
 	for card in exact_matches:
 		embed = discord.Embed()

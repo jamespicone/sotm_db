@@ -47,10 +47,10 @@ def import_mod(directory_to_use):
 		if (len(possible_manifests) != 1):
 			if (len(possible_manifests) == 0):
 				print("No manifests found.")
-				sys.exit(1)
+				return None
 			else:
 				print(f"Several possible manifests found: {', '.join(possible_manifests)}. Do only one mod at a time.")
-				sys.exit(1)
+				return None
 
 		return possible_manifests[0]
 
@@ -59,6 +59,9 @@ def import_mod(directory_to_use):
 
 	def load_manifest(dir_to_use):
 		manifest_filename = get_manifest(dir_to_use)
+		if manifest_filename == None:
+			return None
+
 		try:
 			with open(manifest_filename, "r", encoding="utf-8") as manifest_file:
 				manifest = json.load(manifest_file)
@@ -89,6 +92,9 @@ def import_mod(directory_to_use):
 		return key[0]
 
 	manifest = load_manifest(directory_to_use)
+	if manifest == None:
+		return
+
 	mod_key = get_mod_key(manifest)
 	print(f"Entry for {manifest['title']} has key {mod_key}")
 
