@@ -36,6 +36,7 @@ class Ability:
 class Card:
 	def __init__(self, db_row, ability_rows):
 		self.title = db_row["name"]
+		self.other_title = db_row["other_name"]
 		self.text = db_row["text"]
 		self.gameplay = db_row["gameplay"]
 		self.advanced = db_row["advanced"]
@@ -72,9 +73,15 @@ class Card:
 
 	def format(self, formatter):
 		if self.is_front:
-			formatter.title(self.title)
+			if self.title == self.other_title or self.other_title is None:
+				formatter.title(self.title)
+			else:
+				formatter.title(f"{self.title} (front side of {self.other_title})")
 		else:
-			formatter.title(self.title + " (back side)")
+			if self.title == self.other_title:
+				formatter.title(self.title + " (back side)")
+			else:
+				formatter.title(f"{self.title} (back side of {self.other_title})")
 		
 		if self.hitpoints != None:
 			formatter.smallbox("HP", str(self.hitpoints))
@@ -115,8 +122,8 @@ def search_cards(search_string, deck_hint = None):
 
 	possible_decks = []
 
-	params = [ search_string ]
-	sql = "SELECT cards.*, decks.deck_type, decks.name AS deck_name, mods.name AS mod_name FROM cards INNER JOIN decks ON decks.key == cards.deck_key INNER JOIN mods ON mods.key == decks.mod_key WHERE cards.name LIKE ?"
+	params = [ search_string, search_string ]
+	sql = "SELECT cards.*, decks.deck_type, decks.name AS deck_name, mods.name AS mod_name FROM cards INNER JOIN decks ON decks.key == cards.deck_key INNER JOIN mods ON mods.key == decks.mod_key WHERE (cards.name LIKE ? OR cards.other_name LIKE ?)"
 
 	if deck_hint is not None:
 		deck_hint = "%" + deck_hint + "%"
