@@ -38,6 +38,7 @@ class Card:
 		self.title = db_row["name"]
 		self.other_title = db_row["other_name"]
 		self.text = db_row["text"]
+		self.setup = db_row["setup"]
 		self.gameplay = db_row["gameplay"]
 		self.advanced = db_row["advanced"]
 		self.challenge = db_row["challenge"]
@@ -50,10 +51,16 @@ class Card:
 		self.deck_type = db_row["deck_type"]
 		self.sort_key = db_row["key"]
 
+		self.card_key = db_row["key"]
+		self.other_side = None
+
 		self.is_front = True
 		if db_row["front_side"] != None:
 			self.is_front = False
 			self.sort_key = db_row["front_side"]
+			self.other_side_key = db_row["front_side"]
+		else:
+			self.other_side_key = db_row["back_side"]
 
 		self.is_back = not self.is_front
 
@@ -65,8 +72,21 @@ class Card:
 		self.format(formatter)
 		return str(formatter)
 
+	def is_other_side(self, other):
+		return self.card_key == other.other_side_key
+
+	def set_other_side(self, other):
+		self.other_side = other
+
 	def is_exact_match(self, command):
-		return unicodedata.normalize('NFC', self.title.casefold()) == unicodedata.normalize('NFC', command.casefold())
+		folded_command = unicodedata.normalize('NFC', command.casefold())
+		if unicodedata.normalize('NFC', self.title.casefold()) == folded_command:
+			return True
+
+		if self.other_side != None and unicodedata.normalize('NFC', self.other_side.title.casefold()) == folded_command:
+			return True
+
+		return False
 
 	def is_front_side(self):
 		return self.is_front
@@ -90,6 +110,9 @@ class Card:
 
 		if len(self.keywords) > 0:
 			formatter.smallbox("Keywords", self.keywords)
+
+		if self.setup != None:
+			formatter.box("Setup", self.setup)
 
 		if self.text != None:
 			formatter.box("Text", self.text)
@@ -136,8 +159,18 @@ def search_cards(search_string, deck_hint = None):
 		card_key = row["key"]
 		abilities = cur.execute("SELECT * FROM abilities WHERE card_key == ?;", ( card_key, )).fetchall()
 		return Card(row, abilities)
-	
-	return sorted([ process_card(row) for row in results ], key = attrgetter("sort_key", "is_back"))
+
+	front_sides = [ process_card(row) for row in results if row["front_side"] == None ]
+	back_sides = [ process_card(row) for row in results if row["front_side"] != None ]
+
+	for card in back_sides:
+		for front in front_sides:
+			if card.is_other_side(front):
+				card.set_other_side(front)
+				front.set_other_side(card)
+				break
+
+	return sorted(front_sides, key = attrgetter("sort_key"))
 
 def get_card(card_title):
 	"""

@@ -27,50 +27,62 @@ class DiscordEmbedFormatter:
 	def footer(self, footer_text):
 		self.embed.set_footer(text=footer_text)
 
+def card_to_discord_embed(card):
+	embed = discord.Embed()
+	formatter = DiscordEmbedFormatter(embed)
+	card.format(formatter)
+	return embed
+
+async def send_cards_as_discord_embeds(message, content, cards):
+	for card in cards:
+		await message.channel.send(content=content, embed=card_to_discord_embed(card), reference=message)
+		content = None
+
+		if (card.other_side):
+			await message.channel.send(embed=card_to_discord_embed(card.other_side), reference=message)
+
+def card_to_short_name(card):
+	ret = f"{card.mod}|{card.deck}|{card.title}"
+
+	if (card.other_side != None):
+		ret += f" // {card.other_side.mod}|{card.other_side.deck}|{card.other_side.title}"
+
+	return ret
+
 async def handle_command(command, message):
 	cards = sotm_db.search_cards(command)
 
 	exact_matches = [ card for card in cards if card.is_exact_match(command) ]
 	inexact_matches = [ card for card in cards if not card in exact_matches ]
 
-	unique_card_count = sum(1 for card in cards if card.is_front_side())
-
-	if unique_card_count <= 0:
+	if len(cards) <= 0:
 		await message.channel.send("There are no matches for {{" + str(command) + "}}", reference=message)
+		return
 
-	if unique_card_count > 1:
-		to_send = f"There are {len(cards)} possible matches for {{" + str(command) + "}}"
+	if len(cards) > 1:
+		to_send = f"There are {len(cards)} possible matches for {{{{{command}}}}}"
 	else:
 		to_send = str(command) + ":"
 
-	for card in exact_matches:
-		embed = discord.Embed()
-		formatter = DiscordEmbedFormatter(embed)
-		card.format(formatter)
-
-		await message.channel.send(content=to_send, embed=embed, reference=message)
+	if len(exact_matches) > 0:
+		await send_cards_as_discord_embeds(message, to_send, exact_matches)
 		to_send = None
 
-	if unique_card_count > CARD_SUMMARISE_LIMIT:
-		if to_send == None:
-			to_send = f"{len(inexact_matches)} inexact matches"
+	if len(inexact_matches) > 0:
+		if len(cards) > CARD_SUMMARISE_LIMIT:
+			if to_send == None:
+				to_send = f"{len(inexact_matches)} inexact matches"
 
-		if unique_card_count < CARD_TOTAL_LIMT:
-			to_send += ":"
-			for card in inexact_matches:
-				to_send += "\n" + card.mod + "|" + card.deck + "|" + card.title
+			if len(cards) < CARD_TOTAL_LIMT:
+				to_send += ":"
+				for card in inexact_matches:
+					to_send += "\n" + card_to_short_name(card)
+			else:
+				to_send += " which is too many to list."
+
+			await message.channel.send(to_send, reference=message)
 		else:
-			to_send += " which is too many to list."
-
-		await message.channel.send(to_send, reference=message)
-	else:
-		for card in inexact_matches:
-			embed = discord.Embed()
-			formatter = DiscordEmbedFormatter(embed)
-			card.format(formatter)
-
-			await message.channel.send(content=to_send, embed=embed, reference=message)
-			to_send = None
+			await send_cards_as_discord_embeds(message, to_send, inexact_matches)
 
 class MyClient(discord.Client):
 	async def on_ready(self):
