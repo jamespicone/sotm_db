@@ -158,6 +158,7 @@ def import_mod(directory_to_use):
 	def import_card_with_fields(card, deck_key, is_back):	
 		front_keys = {
 			"text": "body",
+			"setup": "setup",
 			"gameplay": "gameplay",
 			"advanced": "advanced",
 			"challenge": "challengeText",
@@ -170,6 +171,7 @@ def import_mod(directory_to_use):
 
 		back_keys = {
 			"text": "flippedBody",
+			"setup": None,
 			"gameplay": "flippedGameplay",
 			"advanced": "flippedAdvanced",
 			"challenge": "flippedChallengeText",
@@ -202,6 +204,10 @@ def import_mod(directory_to_use):
 		if keys_to_use["incaps"] != None:
 			incaps = card.get(keys_to_use["incaps"])
 
+		setup = None
+		if keys_to_use["setup"] != None:
+			setup = read_text_list(card, keys_to_use["setup"])
+
 		if is_back and text == None and gameplay == None and advanced == None and challenge == None and hitpoints == None and not isinstance(incaps, list) and keywords == "" and front_title == title:
 			return ( None, None )
 
@@ -213,8 +219,8 @@ def import_mod(directory_to_use):
 			keywords = replace_braced_stuff(", ".join(card.get(front_keys["keywords"], [])))
 
 		print(f"{title}: {text}")
-		card_key = cur.execute("INSERT INTO cards (name, hitpoints, text, gameplay, advanced, challenge, keywords, count, deck_key) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING key;",
-			(title, hitpoints, text, gameplay, advanced, challenge, keywords, count, deck_key)
+		card_key = cur.execute("INSERT INTO cards (name, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING key;",
+			(title, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key)
 		).fetchone()[0]
 
 		powers = card.get(keys_to_use["powers"])
