@@ -93,7 +93,7 @@ class Card:
 
 	def format(self, formatter):
 		if self.is_front:
-			if self.title == self.other_title or self.other_title is None:
+			if self.title == self.other_title or not self.other_title:
 				formatter.title(self.title)
 			else:
 				formatter.title(f"{self.title} (front side of {self.other_title})")
@@ -103,7 +103,7 @@ class Card:
 			else:
 				formatter.title(f"{self.title} (back side of {self.other_title})")
 		
-		if self.hitpoints != None:
+		if self.hitpoints:
 			formatter.smallbox("HP", str(self.hitpoints))
 
 		formatter.smallbox("Quantity", str(self.count))
@@ -111,19 +111,19 @@ class Card:
 		if len(self.keywords) > 0:
 			formatter.smallbox("Keywords", self.keywords)
 
-		if self.setup != None:
+		if self.setup:
 			formatter.box("Setup", self.setup)
 
-		if self.text != None:
+		if self.text:
 			formatter.box("Text", self.text)
 
-		if self.gameplay != None:
+		if self.gameplay:
 			formatter.box("Gameplay", self.gameplay)
 
-		if self.advanced != None:
+		if self.advanced:
 			formatter.box("Advanced", self.advanced)
 
-		if self.challenge != None:
+		if self.challenge:
 			formatter.box("Challenge", self.challenge)
 
 		if len(self.abilities) > 0:
@@ -148,7 +148,7 @@ def search_cards(search_string, deck_hint = None):
 	params = [ search_string, search_string ]
 	sql = "SELECT cards.*, decks.deck_type, decks.name AS deck_name, mods.name AS mod_name FROM cards INNER JOIN decks ON decks.key == cards.deck_key INNER JOIN mods ON mods.key == decks.mod_key WHERE (cards.name LIKE ? OR cards.other_name LIKE ?)"
 
-	if deck_hint is not None:
+	if deck_hint:
 		deck_hint = "%" + deck_hint + "%"
 		params.append(deck_hint)
 		sql += " AND cards.deck_key IN (SELECT key FROM decks WHERE name LIKE ?)"
