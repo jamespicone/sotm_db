@@ -222,12 +222,18 @@ def import_mod(directory_to_use):
 			(title, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key)
 		).fetchone()[0]
 
+		def import_power(powertext):
+			cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
+				(card_key, "power", replace_braced_stuff(powertext))
+			)
+
 		powers = card.get(keys_to_use["powers"])
 		if isinstance(powers, list):
 			for power in powers:
-				cur.execute("INSERT INTO abilities (card_key, ability_name, text) VALUES(?, ?, ?);",
-					(card_key, "power", replace_braced_stuff(power))
-				)
+				import_power(power)
+
+		if isinstance(powers, str):
+			import_power(powers)
 
 		if isinstance(incaps, list):
 			for incap in incaps:
