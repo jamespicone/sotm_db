@@ -2,7 +2,7 @@
 import sys
 import os
 import glob
-import json
+import json5
 from flashtext import KeywordProcessor
 
 icon_replacer = KeywordProcessor(case_sensitive=True)
@@ -108,7 +108,7 @@ def import_mod(directory_to_use):
 
 		try:
 			with open(manifest_filename, "r", encoding="utf-8") as manifest_file:
-				manifest = json.load(manifest_file)
+				manifest = json5.load(manifest_file)
 		
 				if not ("title" in manifest):
 					print(f"No 'title' in mod manifest {manifest_filename}")
@@ -218,7 +218,6 @@ def import_mod(directory_to_use):
 		if is_back and keywords == "":
 			keywords = replace_braced_stuff(", ".join(card.get(front_keys["keywords"], [])))
 
-		print(f"{title}: {text}")
 		card_key = cur.execute("INSERT INTO cards (name, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING key;",
 			(title, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key)
 		).fetchone()[0]
@@ -265,32 +264,46 @@ def import_mod(directory_to_use):
 
 	def import_decklist(decklist_filename, mod_key):
 		try:
-			with open(decklist_filename, "r", encoding="utf-8-sig") as decklist_file:
-				decklist = json.load(decklist_file)
+			with open(decklist_filename, "r", encoding="utf-8-sig", errors="ignore") as decklist_file:
+				decklist = json5.load(decklist_file)
 
-				deckname = decklist["name"]
-				decktype = decklist["kind"]
+				deckname = decklist.get("name")
+				decktype = decklist.get("kind")
 
-				print (f"Decklist {decklist_filename} contains {decktype} deck \"{deckname}\"")
+				if deckname == None or decktype == None:
+					# Could be PromoDeckLists.
+					# If it is, we expect a series of keys that contain an array of cards. If we find that's the case, we assume we've got PromoDeckLists.
+					# Don't want to go off filename for defensive programming reasons.
+					deckname = "Promos"
+					decktype = "Promos"
 
-				deck_key =  cur.execute("INSERT INTO decks (name, deck_type, mod_key) VALUES(?, ?, ?) RETURNING key;", (deckname, decktype, mod_key )).fetchone()[0]
+					deck_key = cur.execute("INSERT INTO decks (name, deck_type, mod_key) VALUES(?, ?, ?) RETURNING key;", (deckname, decktype, mod_key )).fetchone()[0]
+							
+					for key, cards in decklist.items():
+						for card in cards:
+							import_card(card, deck_key)
 
-				cards = decklist["cards"]
-				for card in cards:
-					import_card(card, deck_key)
+				else:
+					print (f"Decklist {decklist_filename} contains {decktype} deck \"{deckname}\"")
 
-				promos = decklist.get("promoCards", [])
-				for promo in promos:
-					import_card(promo, deck_key)
+					deck_key = cur.execute("INSERT INTO decks (name, deck_type, mod_key) VALUES(?, ?, ?) RETURNING key;", (deckname, decktype, mod_key )).fetchone()[0]
 
-				subdecks = decklist.get("subdecks", [])
-				for subdeck in subdecks:
-					subdeck_cards = subdeck.get("cards", [])
-					for card in subdeck_cards:
+					cards = decklist["cards"]
+					for card in cards:
 						import_card(card, deck_key)
 
+					promos = decklist.get("promoCards", [])
+					for promo in promos:
+						import_card(promo, deck_key)
+
+					subdecks = decklist.get("subdecks", [])
+					for subdeck in subdecks:
+						subdeck_cards = subdeck.get("cards", [])
+						for card in subdeck_cards:
+							import_card(card, deck_key)
+
 		except BaseException as err:
-			print(f"Failed to interpret {decklist_filename} as a decklist: {err}")
+			print(f"!!! Failed to interpret {decklist_filename} as a decklist: {err}")
 
 
 	for decklist in decklists:
