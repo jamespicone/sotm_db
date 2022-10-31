@@ -11,6 +11,8 @@ CARD_SUMMARISE_LIMIT=3
 """If we have > this many cards we just say we've got a lot of matches"""
 CARD_TOTAL_LIMT=20
 
+BOT_VERSION = "0.1"
+
 class DiscordEmbedFormatter:
 	def __init__(self, embed):
 		self.embed = embed
@@ -49,7 +51,7 @@ def card_to_short_name(card):
 
 	return ret
 
-async def handle_command(command, message):
+async def handle_card_command(commandword, command, message):
 	cards = sotm_db.search_cards(command)
 
 	exact_matches = [ card for card in cards if card.is_exact_match(command) ]
@@ -84,6 +86,46 @@ async def handle_command(command, message):
 		else:
 			await send_cards_as_discord_embeds(message, to_send, inexact_matches)
 
+async def handle_adv_card_command(commandword, command, message):
+	pass
+
+async def handle_deck_command(commandword, command, message):
+	pass
+
+async def handle_mod_command(commandword, command, message):
+	pass
+
+async def handle_help_command(commandword, command, message):
+	helpmessage = """
+	Welcome to SOTMBot!
+	You can ask the bot to do things simply by sending a message with the command sequence.
+	Some commands you can send:
+	- `help:{{}}` gets this help message
+	- `about:{{}}` gets the current version of the SOTMBot
+	- `card:{{search phrase}}` (or just `{{search phrase}}`) finds all the cards with a name matching `search phrase`
+	"""
+
+	if commandword is None:
+		helpmessage += "(You are seeing this because you spoke to SOTMBot directly but didn't include a command)"
+	else:
+		if commandword.lower() != "help":
+			helpmessage += f"(You are seeing this because you asked for a `{commandword}` command, which doesn't exist)"
+
+	await message.channel.send(reference=message, content=helpmessage)
+
+async def handle_about_command(commandword, command, message):
+	await message.channel.send(reference=message, content=f"SOTMBot version {BOT_VERSION}")
+
+command_funcs = {
+	"card": handle_card_command,
+	"cardadv": handle_adv_card_command,
+	"deck": handle_deck_command,
+	"mod": handle_mod_command,
+	"help": handle_help_command,
+	"about": handle_about_command,
+	"version": handle_about_command
+}
+
 class MyClient(discord.Client):
 	async def on_ready(self):
 		print('Bot online: ', self.user)
@@ -92,6 +134,8 @@ class MyClient(discord.Client):
 		# don't respond to ourselves
 		if message.author == self.user:
 			return
+
+		command_found = False
 
 		offset = 0
 		while True:
@@ -104,8 +148,22 @@ class MyClient(discord.Client):
 			bot_command_end = message.content.find("}}", bot_command_start, bot_command_newline)
 			if bot_command_end < 0: break
 
-			await handle_command(message.content[bot_command_start:bot_command_end], message)
+			command_found = True
+
+			commandword = "card"
+			possible_commandword = message.content[offset:bot_command_start-2].rsplit(maxsplit=1)
+			if len(possible_commandword) > 0 and possible_commandword[-1][-1] == ":":
+				commandword = possible_commandword[-1][:-1]
+
+			commandfunc = command_funcs.get(commandword, handle_help_command)
+			await commandfunc(commandword, message.content[bot_command_start:bot_command_end], message)
 			offset = bot_command_end
+
+		if not command_found and client.user.mentioned_in(message):
+			await handle_help_command(None, None, message)
+
+	async def on_thread_create(self, thread):
+		await thread.join()
 
 client = MyClient()
 
