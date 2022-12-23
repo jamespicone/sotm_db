@@ -13,6 +13,8 @@ CARD_TOTAL_LIMT=20
 
 BOT_VERSION = "0.1"
 
+print(f"Discord version: {discord.__version__}")
+
 class DiscordEmbedFormatter:
 	def __init__(self, embed):
 		self.embed = embed
@@ -29,71 +31,75 @@ class DiscordEmbedFormatter:
 	def footer(self, footer_text):
 		self.embed.set_footer(text=footer_text)
 
-def card_to_discord_embed(card):
+def object_to_discord_embed(object):
 	embed = discord.Embed()
 	formatter = DiscordEmbedFormatter(embed)
-	card.format(formatter)
+	object.format(formatter)
 	return embed
+
+async def send_objects_as_discord_embeds(message, content, objects):
+	for obj in objects:
+		await message.channel.send(content=content, embed=object_to_discord_embed(obj), reference=message)
+		content = None
 
 async def send_cards_as_discord_embeds(message, content, cards):
 	for card in cards:
-		await message.channel.send(content=content, embed=card_to_discord_embed(card), reference=message)
+		await message.channel.send(content=content, embed=object_to_discord_embed(card), reference=message)
 		content = None
 
 		if (card.other_side):
-			await message.channel.send(embed=card_to_discord_embed(card.other_side), reference=message)
+			await message.channel.send(embed=object_to_discord_embed(card.other_side), reference=message)
 
-def card_to_short_name(card):
-	ret = f"{card.mod}|{card.deck}|{card.title}"
+async def report_results(command, message, objects, send_object_func):
+	exact_matches = [ obj for obj in objects if obj.is_exact_match(command) ]
+	inexact_matches = [ obj for obj in objects if not obj in exact_matches ]
 
-	if (card.other_side != None):
-		ret += f" // {card.other_side.mod}|{card.other_side.deck}|{card.other_side.title}"
-
-	return ret
-
-async def handle_card_command(commandword, command, message):
-	cards = sotm_db.search_cards(command)
-
-	exact_matches = [ card for card in cards if card.is_exact_match(command) ]
-	inexact_matches = [ card for card in cards if not card in exact_matches ]
-
-	if len(cards) <= 0:
+	if len(objects) <= 0:
 		await message.channel.send("There are no matches for {{" + str(command) + "}}", reference=message)
 		return
 
-	if len(cards) > 1:
-		to_send = f"There are {len(cards)} possible matches for {{{{{command}}}}}"
+	if len(objects) > 1:
+		to_send = f"There are {len(objects)} possible matches for {{{{{command}}}}}"
 	else:
 		to_send = str(command) + ":"
 
 	if len(exact_matches) > 0:
-		await send_cards_as_discord_embeds(message, to_send, exact_matches)
+		await send_object_func(message, to_send, exact_matches)
 		to_send = None
 
 	if len(inexact_matches) > 0:
-		if len(cards) > CARD_SUMMARISE_LIMIT:
+		if len(objects) > CARD_SUMMARISE_LIMIT:
 			if to_send == None:
 				to_send = f"{len(inexact_matches)} inexact matches"
 
-			if len(cards) < CARD_TOTAL_LIMT:
+			if len(objects) < CARD_TOTAL_LIMT:
 				to_send += ":"
-				for card in inexact_matches:
-					to_send += "\n" + card_to_short_name(card)
+				for obj in inexact_matches:
+					to_send += "\n" + obj.short_name()
 			else:
 				to_send += " which is too many to list."
 
 			await message.channel.send(to_send, reference=message)
 		else:
-			await send_cards_as_discord_embeds(message, to_send, inexact_matches)
+			await send_object_func(message, to_send, inexact_matches)
+
+async def handle_card_command(commandword, command, message):
+	cards = sotm_db.search_cards(command)
+
+	await report_results(command, message, cards, send_cards_as_discord_embeds)
 
 async def handle_adv_card_command(commandword, command, message):
 	pass
 
 async def handle_deck_command(commandword, command, message):
-	pass
+	decks = sotm_db.search_decks(command)
+
+	await report_results(command, message, decks, send_objects_as_discord_embeds)
 
 async def handle_mod_command(commandword, command, message):
-	pass
+	mods = sotm_db.search_mods(command)
+
+	await report_results(command, message, mods, send_objects_as_discord_embeds)
 
 async def handle_help_command(commandword, command, message):
 	helpmessage = """
@@ -103,6 +109,8 @@ async def handle_help_command(commandword, command, message):
 	- `help:{{}}` gets this help message
 	- `about:{{}}` gets the current version of the SOTMBot
 	- `card:{{search phrase}}` (or just `{{search phrase}}`) finds all the cards with a name matching `search phrase`
+	- `deck:{{search phrase}}` finds all the decks with a name matching `search phrase`
+	- `mod:{{search phrase}}` finds all the mods with a name matching `search phrase`
 	"""
 
 	if commandword is None:
@@ -165,6 +173,9 @@ class MyClient(discord.Client):
 	async def on_thread_create(self, thread):
 		await thread.join()
 
-client = MyClient()
+intents = discord.Intents.default()
+intents.message_content = True
+
+client = MyClient(intents=intents)
 
 client.run(discord_token.sotmBotToken)

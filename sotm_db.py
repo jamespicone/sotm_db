@@ -72,6 +72,14 @@ class Card:
 		self.format(formatter)
 		return str(formatter)
 
+	def short_name(self):
+		ret = f"{self.mod}|{self.deck}|{self.title}"
+
+		if self.is_front_side() and self.other_side != None:
+			ret += f" // " + self.other_side.short_name()
+
+		return ret
+
 	def is_other_side(self, other):
 		return self.card_key == other.other_side_key
 
@@ -147,6 +155,9 @@ class Deck:
 		self.format(formatter)
 		return str(formatter)
 
+	def short_name(self):
+		return f"{self.mod}|{self.name}"
+
 	def is_exact_match(self, command):
 		folded_command = unicodedata.normalize('NFC', command.casefold())
 		return unicodedata.normalize('NFC', self.name.casefold()) == folded_command
@@ -158,6 +169,41 @@ class Deck:
 		formatter.smallbox("Mod", self.mod)
 		formatter.smallbox("Card count", self.card_count)
 
+class Mod:
+	def __init__(self, db_row):
+		self.name = db_row["name"]
+		self.authors = db_row["authors"]
+		self.deck_count = db_row["deck_count"]
+		self.version = db_row["version"]
+
+	def __str__(self):
+		return self.name
+
+	def __repr__(self):
+		formatter = TextFormatter()
+		self.format(formatter)
+		return str(formatter)
+
+	def short_name(self):
+		return self.name
+
+	def is_exact_match(self, command):
+		folded_command = unicodedata.normalize('NFC', command.casefold())
+		return unicodedata.normalize('NFC', self.name.casefold()) == folded_command
+
+	def format(self, formatter):
+		formatter.title(self.name)
+
+		formatter.smallbox("Authors", self.authors)
+		formatter.smallbox("Version", self.version)
+		formatter.smallbox("Deck count", self.deck_count)
+
+def generate_search_string(search_string):
+	search_string = search_string.replace('%', '\%')
+	search_string = search_string.replace('_', '\_')
+	search_string = "%" + search_string + "%"
+	return search_string
+
 def search_cards(search_string, deck_hint = None):
 	"""
 	Returns an iterable of Cards with title matching 'search_string'.
@@ -167,10 +213,7 @@ def search_cards(search_string, deck_hint = None):
 	Returns an empty iterable if no matching cards are found.
 	"""
 
-	search_string = search_string.replace('%', '\%')
-	search_string = search_string.replace('_', '\_')
-	search_string = "%" + search_string + "%"
-
+	search_string = generate_search_string(search_string)
 	possible_decks = []
 
 	params = [ search_string, search_string ]
@@ -207,9 +250,7 @@ def search_decks(search_string):
 	Returns an empty iterable if no matching decks are found.
 	"""
 
-	search_string = search_string.replace('%', '\%')
-	search_string = search_string.replace('_', '\_')
-	search_string = "%" + search_string + "%"
+	search_string = generate_search_string(search_string)
 
 	decks = cur.execute("SELECT decks.*, mods.name as mod_name, (SELECT count(*) FROM cards WHERE deck_key == decks.key AND front_side is NULL) as card_count FROM decks INNER JOIN mods on decks.mod_key == mods.key WHERE decks.name LIKE ?", ( search_string, )).fetchall()
 
@@ -217,6 +258,22 @@ def search_decks(search_string):
 		return Deck(row)
 
 	return sorted([process_deck(row) for row in decks], key = attrgetter("name"))
+
+def search_mods(search_string):
+	"""
+	Returns an iterable of Mods with name matching 'search_string'
+
+	Returns an empty iterable if no matching mods are found.
+	"""
+
+	search_string = generate_search_string(search_string)
+
+	mods = cur.execute("SELECT mods.*, (SELECT count(*) FROM decks WHERE mod_key == mods.key) as deck_count FROM mods WHERE mods.name LIKE ?", ( search_string, )).fetchall()
+
+	def process_mod(row):
+		return Mod(row)
+
+	return sorted([process_mod(row) for row in mods], key = attrgetter("name"))
 
 def get_card(card_title):
 	"""
