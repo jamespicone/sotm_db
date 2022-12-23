@@ -11,7 +11,7 @@ CARD_SUMMARISE_LIMIT=3
 """If we have > this many cards we just say we've got a lot of matches"""
 CARD_TOTAL_LIMT=20
 
-BOT_VERSION = "0.1"
+BOT_VERSION = "0.2"
 
 print(f"Discord version: {discord.__version__}")
 
