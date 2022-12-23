@@ -132,6 +132,32 @@ class Card:
 
 		formatter.footer(f"Deck: {self.deck}, Mod: {self.mod}, Deck type: {self.deck_type}")
 
+class Deck:
+	def __init__(self, db_row):
+		self.name = db_row["name"]
+		self.deck_type = db_row["deck_type"]
+		self.mod = db_row["mod_name"]
+		self.card_count = db_row["card_count"]
+
+	def __str__(self):
+		return self.name
+
+	def __repr__(self):
+		formatter = TextFormatter()
+		self.format(formatter)
+		return str(formatter)
+
+	def is_exact_match(self, command):
+		folded_command = unicodedata.normalize('NFC', command.casefold())
+		return unicodedata.normalize('NFC', self.name.casefold()) == folded_command
+
+	def format(self, formatter):
+		formatter.title(self.name)
+
+		formatter.smallbox("Deck type", self.deck_type)
+		formatter.smallbox("Mod", self.mod)
+		formatter.smallbox("Card count", self.card_count)
+
 def search_cards(search_string, deck_hint = None):
 	"""
 	Returns an iterable of Cards with title matching 'search_string'.
@@ -141,6 +167,8 @@ def search_cards(search_string, deck_hint = None):
 	Returns an empty iterable if no matching cards are found.
 	"""
 
+	search_string = search_string.replace('%', '\%')
+	search_string = search_string.replace('_', '\_')
 	search_string = "%" + search_string + "%"
 
 	possible_decks = []
@@ -171,6 +199,24 @@ def search_cards(search_string, deck_hint = None):
 				break
 
 	return sorted(front_sides, key = attrgetter("sort_key"))
+
+def search_decks(search_string):
+	"""
+	Returns an iterable of Decks with name matching 'search_string'
+
+	Returns an empty iterable if no matching decks are found.
+	"""
+
+	search_string = search_string.replace('%', '\%')
+	search_string = search_string.replace('_', '\_')
+	search_string = "%" + search_string + "%"
+
+	decks = cur.execute("SELECT decks.*, mods.name as mod_name, (SELECT count(*) FROM cards WHERE deck_key == decks.key AND front_side is NULL) as card_count FROM decks INNER JOIN mods on decks.mod_key == mods.key WHERE decks.name LIKE ?", ( search_string, )).fetchall()
+
+	def process_deck(row):
+		return Deck(row)
+
+	return sorted([process_deck(row) for row in decks], key = attrgetter("name"))
 
 def get_card(card_title):
 	"""
