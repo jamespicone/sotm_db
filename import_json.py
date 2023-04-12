@@ -166,7 +166,9 @@ def import_mod(directory_to_use):
 			"powers": "powers",
 			"abilities": "activatableAbilities",
 			"incaps": None,
-			"keywords": "keywords"
+			"keywords": "keywords",
+			"footerTitle": "footerTitle",
+			"footerBody": "footerBody"
 		}
 
 		back_keys = {
@@ -179,7 +181,9 @@ def import_mod(directory_to_use):
 			"powers": "flippedPowers",
 			"abilities": None,
 			"incaps": "incapacitatedAbilities",
-			"keywords": "flippedKeywords"
+			"keywords": "flippedKeywords",
+			"footerTitle": None,
+			"footerBody": None
 		}
 
 		keys_to_use = front_keys
@@ -204,6 +208,14 @@ def import_mod(directory_to_use):
 		if keys_to_use["incaps"] != None:
 			incaps = card.get(keys_to_use["incaps"])
 
+		footerTitle = None
+		if keys_to_use["footerTitle"] != None:
+			footerTitle = card.get(keys_to_use["footerTitle"])
+
+		footerBody = None
+		if keys_to_use["footerBody"] != None:
+			footerBody = read_text_list(card, keys_to_use["footerBody"])
+
 		setup = None
 		if keys_to_use["setup"] != None:
 			setup = read_text_list(card, keys_to_use["setup"])
@@ -218,8 +230,8 @@ def import_mod(directory_to_use):
 		if is_back and keywords == "":
 			keywords = replace_braced_stuff(", ".join(card.get(front_keys["keywords"], [])))
 
-		card_key = cur.execute("INSERT INTO cards (name, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING key;",
-			(title, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key)
+		card_key = cur.execute("INSERT INTO cards (name, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key, footer_title, footer_body) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING key;",
+			(title, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key, footerTitle, footerBody)
 		).fetchone()[0]
 
 		def import_power(powertext):

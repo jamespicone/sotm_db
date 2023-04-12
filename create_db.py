@@ -64,6 +64,8 @@ CREATE TABLE decks (
 # - Card front (another Card instance for the flipped side; self for the front side)
 # - Card count (number of copies of this card in the deck)
 # - Card flavour text & flavour reference (may be quotes?)
+# - Card footer title
+# - Card footer text
 cur.execute("""
 CREATE TABLE cards (
 	key INTEGER PRIMARY KEY NOT NULL,
@@ -82,6 +84,8 @@ CREATE TABLE cards (
 	front_side INTEGER,
 	flavour_text VARCHAR(255),
 	flavour_reference VARCHAR(255),
+	footer_title VARCHAR(255),
+	footer_body VARCHAR(255),
 
 	FOREIGN KEY(deck_key) REFERENCES decks(key)
 	FOREIGN KEY(back_side) REFERENCES cards(key)

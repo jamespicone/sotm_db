@@ -6,6 +6,19 @@ db = sqlite3.connect("sotm_cards.db")
 db.row_factory = sqlite3.Row
 cur = db.cursor()
 
+def _merge_card_sides(card_rows, process_func):
+	front_sides = [ process_func(row) for row in card_rows if row["front_side"] == None ]
+	back_sides = [ process_func(row) for row in card_rows if row["front_side"] != None ]
+
+	for card in back_sides:
+		for front in front_sides:
+			if card.is_other_side(front):
+				card.set_other_side(front)
+				front.set_other_side(card)
+				break
+
+	return sorted(front_sides, key = attrgetter("sort_key"))
+
 class TextFormatter:
 	def __init__(self):
 		self.text = ""
@@ -50,6 +63,8 @@ class Card:
 		self.deck = db_row["deck_name"]
 		self.deck_type = db_row["deck_type"]
 		self.sort_key = db_row["key"]
+		self.footer_title = db_row["footer_title"]
+		self.footer_body = db_row["footer_body"]
 
 		self.card_key = db_row["key"]
 		self.other_side = None
@@ -77,6 +92,14 @@ class Card:
 
 		if self.is_front_side() and self.other_side != None:
 			ret += f" // " + self.other_side.short_name()
+
+		return ret
+
+	def short_card_name(self):
+		ret = f"{self.title}"
+
+		if self.is_front_side() and self.other_side != None:
+			ret += f" // " + self.other_side.short_card_name()
 
 		return ret
 
@@ -138,14 +161,26 @@ class Card:
 			for ability in self.abilities:
 				formatter.box(ability.name, ability.text)
 
+		if self.footer_body:
+			footer_box_title = "Footer"
+			if self.footer_title != None:
+				footer_box_title += ": " + self.footer_title
+
+			formatter.box(footer_box_title, self.footer_body)
+
 		formatter.footer(f"Deck: {self.deck}, Mod: {self.mod}, Deck type: {self.deck_type}")
 
 class Deck:
-	def __init__(self, db_row):
+	def __init__(self, db_row, cards):
 		self.name = db_row["name"]
 		self.deck_type = db_row["deck_type"]
 		self.mod = db_row["mod_name"]
 		self.card_count = db_row["card_count"]
+
+		def process_card(row):
+			return Card(row, [])
+
+		self.cards = _merge_card_sides(cards, process_card)
 
 	def __str__(self):
 		return self.name
@@ -167,14 +202,19 @@ class Deck:
 
 		formatter.smallbox("Deck type", self.deck_type)
 		formatter.smallbox("Mod", self.mod)
-		formatter.smallbox("Card count", self.card_count)
+		formatter.smallbox("Card count", str(self.card_count))
+
+		if len(self.cards) > 0:
+			card_list = "\n".join([ card.short_card_name() for card in self.cards])
+			formatter.box("Cards", card_list)
 
 class Mod:
-	def __init__(self, db_row):
+	def __init__(self, db_row, decks):
 		self.name = db_row["name"]
 		self.authors = db_row["authors"]
 		self.deck_count = db_row["deck_count"]
 		self.version = db_row["version"]
+		self.decks = [ Deck(x, []) for x in decks ]
 
 	def __str__(self):
 		return self.name
@@ -196,13 +236,27 @@ class Mod:
 
 		formatter.smallbox("Authors", self.authors)
 		formatter.smallbox("Version", self.version)
-		formatter.smallbox("Deck count", self.deck_count)
+		formatter.smallbox("Deck count", str(self.deck_count))
+
+		if len(self.decks) > 0:
+			types = set([ deck.deck_type for deck in self.decks ])
+
+			for decktype in types:
+				deck_list = "\n".join([ deck.name for deck in self.decks if deck.deck_type == decktype])
+				formatter.box(decktype + " decks", deck_list)
 
 def generate_search_string(search_string):
 	search_string = search_string.replace('%', '\%')
 	search_string = search_string.replace('_', '\_')
 	search_string = "%" + search_string + "%"
 	return search_string
+
+
+def _card_query():
+	return "SELECT cards.*, decks.deck_type, decks.name AS deck_name, mods.name AS mod_name FROM cards INNER JOIN decks ON decks.key == cards.deck_key INNER JOIN mods ON mods.key == decks.mod_key "
+
+def _deck_query():
+	return "SELECT decks.*, mods.name as mod_name, (SELECT count(*) FROM cards WHERE deck_key == decks.key AND front_side is NULL) as card_count FROM decks INNER JOIN mods on decks.mod_key == mods.key "
 
 def search_cards(search_string, deck_hint = None):
 	"""
@@ -217,7 +271,7 @@ def search_cards(search_string, deck_hint = None):
 	possible_decks = []
 
 	params = [ search_string, search_string ]
-	sql = "SELECT cards.*, decks.deck_type, decks.name AS deck_name, mods.name AS mod_name FROM cards INNER JOIN decks ON decks.key == cards.deck_key INNER JOIN mods ON mods.key == decks.mod_key WHERE (cards.name LIKE ? OR cards.other_name LIKE ?)"
+	sql = _card_query() + "WHERE (cards.name LIKE ? OR cards.other_name LIKE ?)"
 
 	if deck_hint:
 		deck_hint = "%" + deck_hint + "%"
@@ -231,17 +285,7 @@ def search_cards(search_string, deck_hint = None):
 		abilities = cur.execute("SELECT * FROM abilities WHERE card_key == ?;", ( card_key, )).fetchall()
 		return Card(row, abilities)
 
-	front_sides = [ process_card(row) for row in results if row["front_side"] == None ]
-	back_sides = [ process_card(row) for row in results if row["front_side"] != None ]
-
-	for card in back_sides:
-		for front in front_sides:
-			if card.is_other_side(front):
-				card.set_other_side(front)
-				front.set_other_side(card)
-				break
-
-	return sorted(front_sides, key = attrgetter("sort_key"))
+	return _merge_card_sides(results, process_card)
 
 def search_decks(search_string):
 	"""
@@ -252,10 +296,11 @@ def search_decks(search_string):
 
 	search_string = generate_search_string(search_string)
 
-	decks = cur.execute("SELECT decks.*, mods.name as mod_name, (SELECT count(*) FROM cards WHERE deck_key == decks.key AND front_side is NULL) as card_count FROM decks INNER JOIN mods on decks.mod_key == mods.key WHERE decks.name LIKE ?", ( search_string, )).fetchall()
+	decks = cur.execute(_deck_query() + "WHERE decks.name LIKE ?", ( search_string, )).fetchall()
 
 	def process_deck(row):
-		return Deck(row)
+		cards = cur.execute(_card_query() + "WHERE cards.deck_key == ?", (row["key"], )).fetchall()
+		return Deck(row, cards)
 
 	return sorted([process_deck(row) for row in decks], key = attrgetter("name"))
 
@@ -271,7 +316,8 @@ def search_mods(search_string):
 	mods = cur.execute("SELECT mods.*, (SELECT count(*) FROM decks WHERE mod_key == mods.key) as deck_count FROM mods WHERE mods.name LIKE ?", ( search_string, )).fetchall()
 
 	def process_mod(row):
-		return Mod(row)
+		decks = cur.execute(_deck_query() + "WHERE decks.mod_key == ?", (row["key"], )).fetchall()
+		return Mod(row, decks)
 
 	return sorted([process_mod(row) for row in mods], key = attrgetter("name"))
 
