@@ -111,6 +111,7 @@ async def handle_help_command(commandword, command, message):
 	- `card:{{search phrase}}` (or just `{{search phrase}}`) finds all the cards with a name matching `search phrase`
 	- `deck:{{search phrase}}` finds all the decks with a name matching `search phrase`
 	- `mod:{{search phrase}}` finds all the mods with a name matching `search phrase`
+
 	"""
 
 	if commandword is None:
@@ -161,7 +162,7 @@ class MyClient(discord.Client):
 			commandword = "card"
 			possible_commandword = message.content[offset:bot_command_start-2].rsplit(maxsplit=1)
 			if len(possible_commandword) > 0 and possible_commandword[-1][-1] == ":":
-				commandword = possible_commandword[-1][:-1]
+				commandword = possible_commandword[-1][:-1].lower()
 
 			commandfunc = command_funcs.get(commandword, handle_help_command)
 			await commandfunc(commandword, message.content[bot_command_start:bot_command_end], message)
