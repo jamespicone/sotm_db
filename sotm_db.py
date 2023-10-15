@@ -65,6 +65,7 @@ class Card:
 		self.sort_key = db_row["key"]
 		self.footer_title = db_row["footer_title"]
 		self.footer_body = db_row["footer_body"]
+		self.magic_numbers = db_row["magic_numbers"]
 
 		self.card_key = db_row["key"]
 		self.other_side = None
@@ -141,6 +142,9 @@ class Card:
 
 		if len(self.keywords) > 0:
 			formatter.smallbox("Keywords", self.keywords)
+
+		if len(self.magic_numbers) > 0:
+			formatter.smallbox("Magic Numbers", self.magic_numbers)
 
 		if self.setup:
 			formatter.box("Setup", self.setup)

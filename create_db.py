@@ -86,6 +86,7 @@ CREATE TABLE cards (
 	flavour_reference VARCHAR(255),
 	footer_title VARCHAR(255),
 	footer_body VARCHAR(255),
+	magic_numbers VARCHAR(255),
 
 	FOREIGN KEY(deck_key) REFERENCES decks(key)
 	FOREIGN KEY(back_side) REFERENCES cards(key)

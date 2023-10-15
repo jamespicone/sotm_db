@@ -56,6 +56,7 @@ icon_replacer.add_keyword("{Danger}", "🔱")
 icon_replacer.add_keyword("{Dog}", "🐶")
 icon_replacer.add_keyword("{ErlenFlaskEffect}", "🧪")
 icon_replacer.add_keyword("{Fist}", "👊")
+icon_replacer.add_keyword("{Past}", "🔷")
 icon_replacer.add_keyword("{Future}", "🔶")
 icon_replacer.add_keyword("{Madness}", "🧠")
 icon_replacer.add_keyword("{Mask}", "👺")
@@ -86,6 +87,7 @@ icon_replacer.add_keyword("{Bass}", "🎻") # there's no bass emoji; violin is w
 icon_replacer.add_keyword("{Vocal}", "🎤")
 icon_replacer.add_keyword("{Guitar}", "🎸")
 icon_replacer.add_keyword("{Drum}", "🥁")
+icon_replacer.add_keyword("{BetriceMagic}", "🌙")
 
 icon_replacer.set_non_word_boundaries("")
 
@@ -118,13 +120,11 @@ def replace_braced_stuff(text):
 
 	text = h_equation_replacer.sub(h_equation_replace, text)
 
-	print(f"Replacing: {turntaker_id_and_name}")
 	if len(turntaker_id_and_name) > 0:
-		text = text.replace("{" + list(turntaker_id_and_name.keys())[0] + "}", list(turntaker_id_and_name.values())[0])
+		text = text.replace("{" + list(turntaker_id_and_name.keys())[0] + "}", "*" + list(turntaker_id_and_name.values())[0] + "*")
 
-	print(f"Replacing: {card_id_and_name}")
 	if len(turntaker_id_and_name) > 0:		
-		text = text.replace("{" + list(card_id_and_name.keys())[0] + "}", list(card_id_and_name.values())[0])
+		text = text.replace("{" + list(card_id_and_name.keys())[0] + "}", "*" + list(card_id_and_name.values())[0] + "*")
 
 	return text
 
@@ -188,6 +188,16 @@ def read_text_list(node, key):
 
 	return element
 
+def read_keywords(node, key):
+	element = node.get(key, [])
+	if isinstance(element, list):
+		return replace_braced_stuff(", ".join(element))
+
+	if isinstance(element, str):
+		return replace_braced_stuff(element)
+
+	return ""
+
 def import_card_with_fields(card, deck_key, is_back):
 	global turntaker_id_and_name
 	global card_id_and_name
@@ -204,7 +214,8 @@ def import_card_with_fields(card, deck_key, is_back):
 		"incaps": None,
 		"keywords": "keywords",
 		"footerTitle": "footerTitle",
-		"footerBody": "footerBody"
+		"footerBody": "footerBody",
+		"magicNumbers": "magicNumbers"
 	}
 
 	back_keys = {
@@ -219,7 +230,8 @@ def import_card_with_fields(card, deck_key, is_back):
 		"incaps": "incapacitatedAbilities",
 		"keywords": "flippedKeywords",
 		"footerTitle": None,
-		"footerBody": None
+		"footerBody": None,
+		"magicNumbers": None
 	}
 
 	keys_to_use = front_keys
@@ -235,13 +247,12 @@ def import_card_with_fields(card, deck_key, is_back):
 
 	identifier = card["identifier"]
 	card_id_and_name = { identifier: title }
-	print(f"Card {identifier} title {title} id_and_name {card_id_and_name}")
 
 	text = read_text_list(card, keys_to_use["text"])
 	gameplay = read_text_list(card, keys_to_use["gameplay"])
 	advanced = read_text_list(card, keys_to_use["advanced"])
 	challenge = read_text_list(card, keys_to_use["challenge"])
-	keywords = replace_braced_stuff(", ".join(card.get(keys_to_use["keywords"], [])))
+	keywords = read_keywords(card, keys_to_use["keywords"])
 	hitpoints = card.get(keys_to_use["hitpoints"])
 	count = card.get("count", 1)
 	incaps = None
@@ -256,6 +267,12 @@ def import_card_with_fields(card, deck_key, is_back):
 	if keys_to_use["footerBody"] != None:
 		footerBody = read_text_list(card, keys_to_use["footerBody"])
 
+	magicNumbers = None
+	if keys_to_use["magicNumbers"] != None:
+		element = card.get(keys_to_use["magicNumbers"])
+		if element != None:
+			magicNumbers = ", ".join(str(x) for x in element)
+
 	setup = None
 	if keys_to_use["setup"] != None:
 		setup = read_text_list(card, keys_to_use["setup"])
@@ -268,10 +285,10 @@ def import_card_with_fields(card, deck_key, is_back):
 		hitpoints = front_hitpoints
 
 	if is_back and keywords == "":
-		keywords = replace_braced_stuff(", ".join(card.get(front_keys["keywords"], [])))
+		keywords = keywords = read_keywords(card, front_keys["keywords"])
 
-	card_key = cur.execute("INSERT INTO cards (name, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key, footer_title, footer_body) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING key;",
-		(title, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key, footerTitle, footerBody)
+	card_key = cur.execute("INSERT INTO cards (name, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key, footer_title, footer_body, magic_numbers) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING key;",
+		(title, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key, footerTitle, footerBody, magicNumbers)
 	).fetchone()[0]
 
 	def import_power(powertext):
