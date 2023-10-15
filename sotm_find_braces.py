@@ -3,7 +3,7 @@ import unicodedata
 import re
 from operator import attrgetter
 
-pattern = re.compile("\{[^\r\n}]*\}")
+pattern = re.compile("\{[^\r\n}]*\}|\[[^\r\n\]]*\]")
 
 db = sqlite3.connect("sotm_cards.db")
 db.row_factory = sqlite3.Row
