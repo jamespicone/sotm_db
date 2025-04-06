@@ -88,6 +88,8 @@ icon_replacer.add_keyword("{Vocal}", "🎤")
 icon_replacer.add_keyword("{Guitar}", "🎸")
 icon_replacer.add_keyword("{Drum}", "🥁")
 icon_replacer.add_keyword("{BetriceMagic}", "🌙")
+icon_replacer.add_keyword("{iceSmall}", "❄")
+icon_replacer.add_keyword("{ice}", "❄")
 
 icon_replacer.set_non_word_boundaries("")
 
