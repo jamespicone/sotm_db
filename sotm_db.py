@@ -1,6 +1,7 @@
 import sqlite3
 import unicodedata
 from operator import attrgetter
+from normalize import normalize_for_search
 
 db = sqlite3.connect("sotm_cards.db")
 db.row_factory = sqlite3.Row
@@ -250,8 +251,8 @@ class Mod:
 				formatter.box(decktype + " decks", deck_list)
 
 def generate_search_string(search_string):
-	search_string = search_string.replace('%', '\%')
-	search_string = search_string.replace('_', '\_')
+	search_string = search_string.replace('%', r'\%')
+	search_string = search_string.replace('_', r'\_')
 	search_string = "%" + search_string + "%"
 	return search_string
 
@@ -271,16 +272,16 @@ def search_cards(search_string, deck_hint = None):
 	Returns an empty iterable if no matching cards are found.
 	"""
 
-	search_string = generate_search_string(search_string)
+	search_string = generate_search_string(normalize_for_search(search_string))
 	possible_decks = []
 
 	params = [ search_string, search_string ]
-	sql = _card_query() + "WHERE (cards.name LIKE ? OR cards.other_name LIKE ?)"
+	sql = _card_query() + "WHERE (cards.search_name LIKE ? OR cards.search_other_name LIKE ?)"
 
 	if deck_hint:
-		deck_hint = "%" + deck_hint + "%"
+		deck_hint = "%" + normalize_for_search(deck_hint) + "%"
 		params.append(deck_hint)
-		sql += " AND cards.deck_key IN (SELECT key FROM decks WHERE name LIKE ?)"
+		sql += " AND cards.deck_key IN (SELECT key FROM decks WHERE search_name LIKE ?)"
 
 	results = cur.execute(sql, params).fetchall();
 
@@ -298,9 +299,9 @@ def search_decks(search_string):
 	Returns an empty iterable if no matching decks are found.
 	"""
 
-	search_string = generate_search_string(search_string)
+	search_string = generate_search_string(normalize_for_search(search_string))
 
-	decks = cur.execute(_deck_query() + "WHERE decks.name LIKE ?", ( search_string, )).fetchall()
+	decks = cur.execute(_deck_query() + "WHERE decks.search_name LIKE ?", ( search_string, )).fetchall()
 
 	def process_deck(row):
 		cards = cur.execute(_card_query() + "WHERE cards.deck_key == ?", (row["key"], )).fetchall()
@@ -315,9 +316,9 @@ def search_mods(search_string):
 	Returns an empty iterable if no matching mods are found.
 	"""
 
-	search_string = generate_search_string(search_string)
+	search_string = generate_search_string(normalize_for_search(search_string))
 
-	mods = cur.execute("SELECT mods.*, (SELECT count(*) FROM decks WHERE mod_key == mods.key) as deck_count FROM mods WHERE mods.name LIKE ?", ( search_string, )).fetchall()
+	mods = cur.execute("SELECT mods.*, (SELECT count(*) FROM decks WHERE mod_key == mods.key) as deck_count FROM mods WHERE mods.search_name LIKE ?", ( search_string, )).fetchall()
 
 	def process_mod(row):
 		decks = cur.execute(_deck_query() + "WHERE decks.mod_key == ?", (row["key"], )).fetchall()

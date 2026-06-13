@@ -5,6 +5,7 @@ import glob
 import traceback
 import json5
 from flashtext import KeywordProcessor
+from normalize import normalize_for_search
 
 icon_replacer = KeywordProcessor(case_sensitive=True)
 icon_replacer.add_keyword("{BR}", "\n")
@@ -178,7 +179,7 @@ def load_manifest(dir_to_use):
 
 def get_mod_key(manifest):
 	print(f"Manifest: {manifest}")
-	cur.execute("INSERT OR IGNORE INTO mods (name, authors, version) VALUES(?, ?, ?);", ( manifest["title"], manifest["author"], manifest.get("version", "") ))
+	cur.execute("INSERT OR IGNORE INTO mods (name, search_name, authors, version) VALUES(?, ?, ?, ?);", ( manifest["title"], normalize_for_search(manifest["title"]), manifest["author"], manifest.get("version", "") ))
 	cur.execute("UPDATE mods SET authors = ? WHERE name = ?;", ( manifest["title"], manifest["author"] ))
 	cur.execute("UPDATE mods SET version = ? WHERE name = ?;", ( manifest["title"], manifest.get("version", "") ))
 	key = cur.execute("SELECT key FROM mods WHERE name = ?;",  ( manifest["title"], )).fetchone()
@@ -301,8 +302,8 @@ def import_card_with_fields(card, deck_key, is_back):
 	if is_back and keywords == "":
 		keywords = keywords = read_keywords(card, front_keys["keywords"])
 
-	card_key = cur.execute("INSERT INTO cards (name, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key, footer_title, footer_body, magic_numbers) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING key;",
-		(title, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key, footerTitle, footerBody, magicNumbers)
+	card_key = cur.execute("INSERT INTO cards (name, search_name, hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key, footer_title, footer_body, magic_numbers) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING key;",
+		(title, normalize_for_search(title), hitpoints, text, setup, gameplay, advanced, challenge, keywords, count, deck_key, footerTitle, footerBody, magicNumbers)
 	).fetchone()[0]
 
 	def import_power(powertext):
@@ -347,9 +348,9 @@ def import_card(card, deck_key):
 
 	if front_key != None and back_key != None:
 		cur.execute("UPDATE cards SET back_side = ? WHERE key = ?;", (back_key, front_key))
-		cur.execute("UPDATE cards SET other_name= ? WHERE key = ?;", (back_title, front_key))
+		cur.execute("UPDATE cards SET other_name= ?, search_other_name = ? WHERE key = ?;", (back_title, normalize_for_search(back_title), front_key))
 		cur.execute("UPDATE cards SET front_side = ? WHERE key = ?;", (front_key, back_key))
-		cur.execute("UPDATE cards SET other_name = ? WHERE key = ?;", (front_title, back_key))
+		cur.execute("UPDATE cards SET other_name = ?, search_other_name = ? WHERE key = ?;", (front_title, normalize_for_search(front_title), back_key))
 
 def import_decklist(decklist_filename, mod_key):
 	global turntaker_id_and_name
@@ -371,7 +372,7 @@ def import_decklist(decklist_filename, mod_key):
 
 				turntaker_id_and_name = {}
 
-				deck_key = cur.execute("INSERT INTO decks (name, deck_type, mod_key) VALUES(?, ?, ?) RETURNING key;", (deckname, decktype, mod_key )).fetchone()[0]
+				deck_key = cur.execute("INSERT INTO decks (name, search_name, deck_type, mod_key) VALUES(?, ?, ?, ?) RETURNING key;", (deckname, normalize_for_search(deckname), decktype, mod_key )).fetchone()[0]
 							
 				for key, cards in decklist.items():
 					for card in cards:
@@ -383,7 +384,7 @@ def import_decklist(decklist_filename, mod_key):
 
 				print (f"Decklist {decklist_filename} contains {decktype} deck \"{deckname}\" ID \"{identifier}\"")
 
-				deck_key = cur.execute("INSERT INTO decks (name, deck_type, mod_key) VALUES(?, ?, ?) RETURNING key;", (deckname, decktype, mod_key )).fetchone()[0]
+				deck_key = cur.execute("INSERT INTO decks (name, search_name, deck_type, mod_key) VALUES(?, ?, ?, ?) RETURNING key;", (deckname, normalize_for_search(deckname), decktype, mod_key )).fetchone()[0]
 
 				cards = decklist["cards"]
 				for card in cards:

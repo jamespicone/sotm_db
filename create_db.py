@@ -25,6 +25,7 @@ cur.execute("""
 CREATE TABLE mods (
 	key INTEGER PRIMARY KEY NOT NULL,
 	name VARCHAR(255) UNIQUE NOT NULL COLLATE NOCASE,
+	search_name VARCHAR(255),
 	authors VARCHAR(255) NOT NULL,
 	link VARCHAR(255),
 	version VARCHAR(255)
@@ -41,6 +42,7 @@ CREATE TABLE decks (
 	key INTEGER PRIMARY KEY NOT NULL,
 	mod_key INTEGER NOT NULL,
 	name VARCHAR(255) NOT NULL COLLATE NOCASE,
+	search_name VARCHAR(255),
 	deck_type VARCHAR(255) NOT NULL,
 
 	FOREIGN KEY(mod_key) REFERENCES mods(key)
@@ -72,6 +74,8 @@ CREATE TABLE cards (
 	deck_key INTEGER NOT NULL,
 	name VARCHAR(255) NOT NULL COLLATE NOCASE,
 	other_name VARCHAR(255) COLLATE NOCASE,
+	search_name VARCHAR(255),
+	search_other_name VARCHAR(255),
 	hitpoints INTEGER,
 	text VARCHAR(255),
 	gameplay VARCHAR(255),
