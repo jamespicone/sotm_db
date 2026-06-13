@@ -88,8 +88,42 @@ async def handle_card_command(commandword, command, message):
 
 	await report_results(command, message, cards, send_cards_as_discord_embeds)
 
+def parse_advanced_query(query):
+	"""
+	Parses 'key=value; key=value' into a dict of key -> list of values.
+
+	Splits on ';', then on the first '=' (so values may contain '='). Keys are
+	lowercased; whitespace is trimmed. Empty segments are skipped. Raises
+	sotm_db.AdvancedSearchError on a segment with no '='.
+	"""
+	criteria = {}
+	for segment in query.split(";"):
+		segment = segment.strip()
+		if not segment:
+			continue
+
+		if "=" not in segment:
+			raise sotm_db.AdvancedSearchError(f"Search term `{segment}` is missing an `=` (expected `key=value`).")
+
+		key, value = segment.split("=", 1)
+		key = key.strip().lower()
+		value = value.strip()
+		if not value:
+			continue
+
+		criteria.setdefault(key, []).append(value)
+
+	return criteria
+
 async def handle_adv_card_command(commandword, command, message):
-	pass
+	try:
+		criteria = parse_advanced_query(command)
+		cards = sotm_db.search_cards_advanced(criteria)
+	except sotm_db.AdvancedSearchError as err:
+		await message.channel.send(str(err), reference=message)
+		return
+
+	await report_results(command, message, cards, send_cards_as_discord_embeds)
 
 async def handle_deck_command(commandword, command, message):
 	decks = sotm_db.search_decks(command)
@@ -111,6 +145,7 @@ Some commands you can send:
 - `card:{{search phrase}}` (or just `{{search phrase}}`) finds all the cards with a name matching `search phrase`
 - `deck:{{search phrase}}` finds all the decks with a name matching `search phrase`
 - `mod:{{search phrase}}` finds all the mods with a name matching `search phrase`
+- `cardadv:{{key=value; key=value}}` finds cards matching every `key=value` filter (repeat a key to OR its values). Keys: `name`, `keyword` (alias `type`), `mod`, `deck`, `kind` (alias `decktype`), `text`, `ability`. Example: `cardadv:{{type=ongoing; mod=cauldron}}`
 
 	"""
 
@@ -128,6 +163,7 @@ async def handle_about_command(commandword, command, message):
 command_funcs = {
 	"card": handle_card_command,
 	"cardadv": handle_adv_card_command,
+	"advcard": handle_adv_card_command,
 	"deck": handle_deck_command,
 	"mod": handle_mod_command,
 	"help": handle_help_command,

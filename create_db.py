@@ -6,22 +6,18 @@ import sqlite3
 # - decks: An individual hero/villain/environment deck
 # - cards: A single SOTM card.
 #
-# Every deck belongs to a mod, every card belongs to a deck.
+# Every deck belongs to a mod, every card belongs to a card.
+#
+# The search_name / search_other_name columns hold accent- and case-folded
+# copies of the corresponding name columns (see normalize.normalize_for_search)
+# so that searches are accent-insensitive.
 
-db = sqlite3.connect("sotm_cards.db")
-cur = db.cursor()
+SCHEMA = """
+DROP TABLE IF EXISTS mods;
+DROP TABLE IF EXISTS decks;
+DROP TABLE IF EXISTS cards;
+DROP TABLE IF EXISTS abilities;
 
-cur.execute("DROP TABLE IF EXISTS mods;")
-cur.execute("DROP TABLE IF EXISTS decks;")
-cur.execute("DROP TABLE IF EXISTS cards;")
-cur.execute("DROP TABLE IF EXISTS abilities;")
-
-# Table mods
-# - PK
-# - Name
-# - Authors
-# - Link
-cur.execute("""
 CREATE TABLE mods (
 	key INTEGER PRIMARY KEY NOT NULL,
 	name VARCHAR(255) UNIQUE NOT NULL COLLATE NOCASE,
@@ -30,14 +26,7 @@ CREATE TABLE mods (
 	link VARCHAR(255),
 	version VARCHAR(255)
 );
-""")
 
-# Table decks
-# - PK
-# - mod id
-# - name
-# - deck_type
-cur.execute("""
 CREATE TABLE decks (
 	key INTEGER PRIMARY KEY NOT NULL,
 	mod_key INTEGER NOT NULL,
@@ -47,28 +36,7 @@ CREATE TABLE decks (
 
 	FOREIGN KEY(mod_key) REFERENCES mods(key)
 );
-""")
 
-# Table cards
-# - PK
-# - deck id
-# - Card name
-# - Hitpoints (poss. None)
-# - Keywords list (poss. empty)
-# - Card text (poss. None)
-# - Card "Gameplay" text (poss. None)
-# - Card "Setup" text (poss. None)
-# - Card "Advanced" text (poss. None)
-# - Card "Challenge" text (poss. None)
-# - Card powers (poss. empty)
-# - Card abilities (poss. empty)
-# - Card back (another Card instance for the front side; self for the flipped side)
-# - Card front (another Card instance for the flipped side; self for the front side)
-# - Card count (number of copies of this card in the deck)
-# - Card flavour text & flavour reference (may be quotes?)
-# - Card footer title
-# - Card footer text
-cur.execute("""
 CREATE TABLE cards (
 	key INTEGER PRIMARY KEY NOT NULL,
 	deck_key INTEGER NOT NULL,
@@ -96,14 +64,7 @@ CREATE TABLE cards (
 	FOREIGN KEY(back_side) REFERENCES cards(key)
 	FOREIGN KEY(front_side) REFERENCES cards(key)
 );
-""")
 
-# Table abilities
-# - PK
-# - Card id
-# - Ability name ("power" for powers)
-# - Power text
-cur.execute("""
 CREATE TABLE abilities (
 	key INTEGER PRIMARY KEY NOT NULL,
 	card_key INTEGER NOT NULL,
@@ -112,7 +73,15 @@ CREATE TABLE abilities (
 
 	FOREIGN KEY(card_key) REFERENCES cards(key)
 );
-""")
+"""
 
-db.commit()
-db.close()
+def create_schema(cur):
+	"""Create the (empty) SOTM schema on the given cursor, dropping any existing tables first."""
+	cur.executescript(SCHEMA)
+
+if __name__ == "__main__":
+	db = sqlite3.connect("sotm_cards.db")
+	cur = db.cursor()
+	create_schema(cur)
+	db.commit()
+	db.close()

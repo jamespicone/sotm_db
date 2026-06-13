@@ -141,10 +141,10 @@ class Card:
 
 		formatter.smallbox("Quantity", str(self.count))
 
-		if len(self.keywords) > 0:
+		if self.keywords:
 			formatter.smallbox("Keywords", self.keywords)
 
-		if len(self.magic_numbers) > 0:
+		if self.magic_numbers:
 			formatter.smallbox("Magic Numbers", self.magic_numbers)
 
 		if self.setup:
@@ -284,6 +284,79 @@ def search_cards(search_string, deck_hint = None):
 		sql += " AND cards.deck_key IN (SELECT key FROM decks WHERE search_name LIKE ?)"
 
 	results = cur.execute(sql, params).fetchall();
+
+	def process_card(row):
+		card_key = row["key"]
+		abilities = cur.execute("SELECT * FROM abilities WHERE card_key == ?;", ( card_key, )).fetchall()
+		return Card(row, abilities)
+
+	return _merge_card_sides(results, process_card)
+
+class AdvancedSearchError(Exception):
+	"""Raised when an advanced card search can't be understood (e.g. an unknown key)."""
+	pass
+
+# Advanced card-search fields. Each maps to a list of SQL expressions (each with
+# one '?' placeholder) that are OR'd together, plus whether the value should be
+# accent/case-folded before matching. Folding is only correct for columns that
+# store the folded form (the search_* columns); raw-text columns must not be folded.
+_ADV_CARD_FIELDS = {
+	"name":    ( [ "cards.search_name LIKE ?", "cards.search_other_name LIKE ?" ], True ),
+	"keyword": ( [ "cards.keywords LIKE ?" ], False ),
+	"mod":     ( [ "mods.search_name LIKE ?" ], True ),
+	"deck":    ( [ "decks.search_name LIKE ?" ], True ),
+	"kind":    ( [ "decks.deck_type LIKE ?" ], False ),
+	"text":    ( [ "cards.text LIKE ?", "cards.gameplay LIKE ?", "cards.setup LIKE ?", "cards.advanced LIKE ?", "cards.challenge LIKE ?" ], False ),
+	"ability": ( [ "EXISTS (SELECT 1 FROM abilities WHERE abilities.card_key == cards.key AND abilities.text LIKE ?)" ], False ),
+}
+
+_ADV_CARD_ALIASES = {
+	"type":     "keyword",
+	"decktype": "kind",
+}
+
+def search_cards_advanced(criteria):
+	"""
+	Filters cards by a dict of field -> list of values.
+
+	Values for the same field are OR'd together; different fields are AND'd.
+	Empty values are ignored. Raises AdvancedSearchError if a field key is not
+	recognised. Returns an empty iterable if there are no (usable) criteria or
+	no cards match.
+	"""
+
+	clauses = []
+	params = []
+
+	for key, values in criteria.items():
+		canonical = _ADV_CARD_ALIASES.get(key, key)
+		field = _ADV_CARD_FIELDS.get(canonical)
+		if field is None:
+			valid = ", ".join(sorted(_ADV_CARD_FIELDS))
+			raise AdvancedSearchError(f"Unknown search key '{key}'. Valid keys are: {valid}.")
+
+		columns, should_normalize = field
+
+		value_clauses = []
+		for value in values:
+			if should_normalize:
+				value = normalize_for_search(value)
+			value = value.strip()
+			if not value:
+				continue
+
+			wrapped = generate_search_string(value)
+			value_clauses.append("(" + " OR ".join(columns) + ")")
+			params.extend([ wrapped ] * len(columns))
+
+		if value_clauses:
+			clauses.append("(" + " OR ".join(value_clauses) + ")")
+
+	if not clauses:
+		return []
+
+	sql = _card_query() + "WHERE " + " AND ".join(clauses)
+	results = cur.execute(sql, params).fetchall()
 
 	def process_card(row):
 		card_key = row["key"]
