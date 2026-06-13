@@ -2,6 +2,7 @@
 import sys
 import os
 import glob
+import traceback
 import json5
 from flashtext import KeywordProcessor
 
@@ -90,16 +91,23 @@ icon_replacer.add_keyword("{Drum}", "🥁")
 icon_replacer.add_keyword("{BetriceMagic}", "🌙")
 icon_replacer.add_keyword("{iceSmall}", "❄")
 icon_replacer.add_keyword("{ice}", "❄")
+icon_replacer.add_keyword("{sunbeam}", "☀")
+icon_replacer.add_keyword("{sunbeamsmall}", "☀")
+icon_replacer.add_keyword("{red}", "🔴")
+icon_replacer.add_keyword("{blue}", "🔵")
+icon_replacer.add_keyword("{white}", "⚪")
+icon_replacer.add_keyword("{black}", "⚫")
 
 icon_replacer.set_non_word_boundaries("")
 
 import re
 
-bold_replacer = re.compile("\[b=[^\r\n\]]*\]|\[/b\]")
-text_size_replacer = re.compile("\[y=[^\r\n\]]*\]|\[/y\]")
-h_equation_replacer = re.compile("\{([0-9 +\-*]*H[0-9 +\-*]*)\}")
+bold_replacer = re.compile("\\[b=[^\r\n\\]]*\\]|\\[/b\\]")
+text_size_replacer = re.compile("\\[y=[^\r\n\\]]*\\]|\\[/y\\]")
+empty_replacer = re.compile("\\{empty\\}")
+h_equation_replacer = re.compile("\\{([0-9 +\\-*]*H[0-9 +\\-*]*)\\}")
 
-tt_id_replacer = re.compile(".*\.(.*)DeckList\.json")
+tt_id_replacer = re.compile(".*\\.(.*)DeckList\\.json")
 
 turntaker_id_and_name = {}
 card_id_and_name = {}
@@ -116,6 +124,7 @@ def replace_braced_stuff(text):
 
 	text = bold_replacer.sub("**", text)
 	text = text_size_replacer.sub("", text)
+	text = empty_replacer.sub("", text)
 
 	def h_equation_replace(match):
 		return match.group(1).replace("H", "Ⓗ")
@@ -240,12 +249,15 @@ def import_card_with_fields(card, deck_key, is_back):
 	if is_back:
 		keys_to_use = back_keys
 
-	title = card["title"]
+	title = card.get("title")
 	title = card.get("alternateTitle", title)
 	title = card.get("promoTitle", title)
 	front_title = title
 	if is_back:
 		title = card.get("flippedTitle", title)
+
+	if title == None:
+		raise ValueError(f"Card {card.get('identifier')} has no title, alternateTitle or promoTitle")
 
 	identifier = card["identifier"]
 	card_id_and_name = { identifier: title }
@@ -389,6 +401,7 @@ def import_decklist(decklist_filename, mod_key):
 
 	except BaseException as err:
 		print(f"!!! Failed to interpret {decklist_filename} as a decklist: {err}")
+		traceback.print_exc()
 
 def import_mod(directory_to_use):
 	print(f"Importing mod in {directory_to_use}")
